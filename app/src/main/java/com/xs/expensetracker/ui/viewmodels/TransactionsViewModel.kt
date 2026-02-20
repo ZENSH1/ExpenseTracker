@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.data.enums.TransactionType
 import com.xs.expensetracker.data.models.TransactionReceipt
 import com.xs.expensetracker.repo.ExpenseTrackerRepository
+import com.xs.expensetracker.utils.Utils.log
 import com.xs.expensetracker.utils.states.TransactionsUiState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -171,6 +172,7 @@ class TransactionsViewModel(
     fun addReceipt(
         trackerId: String,
         sourceId: String,
+        type: TransactionType,
         name: String,
         description: String,
         amount: Double,
@@ -182,6 +184,7 @@ class TransactionsViewModel(
             val result = repository.addReceipt(
                 trackerId,
                 sourceId,
+                type,
                 name,
                 description,
                 amount,
@@ -223,6 +226,7 @@ class TransactionsViewModel(
                 sourceId,
                 receiptId
             ).onFailure { error->
+                error.stackTraceToString().log()
                 _uiState.update {
                     it.copy(error = error.message)
                 }

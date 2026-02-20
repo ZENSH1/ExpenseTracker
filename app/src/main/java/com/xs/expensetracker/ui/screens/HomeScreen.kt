@@ -6,6 +6,8 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -32,6 +34,7 @@ import com.xs.expensetracker.ui.theme.textPrimary
 import com.xs.expensetracker.ui.theme.textSecondary
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
+import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
@@ -40,6 +43,10 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
+    // -- new params --
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    // -- existing params --
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     onLogout: () -> Unit,
@@ -59,6 +66,18 @@ fun HomeScreen(
     val onAddReceipt = { showAddReceiptModal = true }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
 
+
+    //Colors
+    val glowColor by animateColorAsState(
+        targetValue = if (selectedType == TransactionType.INCOME)
+            Color(0xFF00C9A7).copy(alpha = 0.12f)
+        else
+            Color(0xFFFF6B6B).copy(alpha = 0.12f),
+        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+        label = "glowColor"
+    )
+
+
     // Observe sources & receipts whenever type or trackerId changes
     LaunchedEffect(trackerId, selectedType) {
         transactionsViewModel.observeSources(trackerId, selectedType)
@@ -72,7 +91,14 @@ fun HomeScreen(
     // Compute grand total from sources
     val grandTotal = txState.sources.sumOf { it.totalAmount }
 
-    val activeColor = if (selectedType == TransactionType.INCOME) incomeColor else expenseColor
+    val activeColor by animateColorAsState(
+        targetValue = if (selectedType == TransactionType.INCOME)
+            Color(0xFF00C9A7).copy(alpha = 1F)
+        else
+            Color(0xFFFF6B6B).copy(alpha = 1F),
+        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+        label = "activeColor"
+    )
 
     Box(
         modifier = Modifier
@@ -84,11 +110,7 @@ fun HomeScreen(
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(
-                        if (selectedType == TransactionType.INCOME)
-                            Color(0xFF00C9A7).copy(alpha = 0.12f)
-                        else
-                            Color(0xFFFF6B6B).copy(alpha = 0.12f),
+                    colors = listOf(glowColor,
                         Color.Transparent
                     ),
                     center = Offset(size.width * 0.5f, size.height * 0.15f),
@@ -172,71 +194,90 @@ fun HomeScreen(
                 }
             }
 
-            // ── Grand Total Card ─────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                bgCard,
-                                Color(0xFF1E1E3A)
-                            )
-                        )
-                    )
-                    .border(
-                        width = 1.dp,
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                activeColor.copy(alpha = 0.4f),
-                                accentPurple.copy(alpha = 0.2f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                    .padding(24.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(activeColor)
-                        )
-                        Text(
-                            text = "Grand Total • ${selectedType.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                            color = textSecondary,
-                            fontSize = 13.sp
-                        )
-                    }
+            with(sharedTransitionScope) {
 
-                    AnimatedContent(
-                        targetState = grandTotal,
-                        transitionSpec = {
-                            slideInVertically { it } + fadeIn() togetherWith
-                                    slideOutVertically { -it } + fadeOut()
-                        },
-                        label = "total_anim"
-                    ) { total ->
+                // ── Grand Total Card ─────────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // 👇 The entire card morphs into the Summary Card
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                        )
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(
+                            Brush.linearGradient(colors = listOf(bgCard, Color(0xFF1E1E3A)))
+                        )
+                        .border(
+                            width = 1.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    activeColor.copy(alpha = 0.4f),
+                                    accentPurple.copy(alpha = 0.2f)
+                                )
+                            ),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        .padding(24.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(activeColor)
+                            )
+                            // 👇 The label text flies across
+                            Text(
+                                text = "Grand Total • ${
+                                    selectedType.name.lowercase()
+                                        .replaceFirstChar { it.uppercase() }
+                                }",
+                                color = activeColor,
+                                fontSize = 13.sp,
+                                modifier = Modifier.sharedElement(
+                                    sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_LABEL),
+                                    animatedVisibilityScope = animatedVisibilityScope
+                                )
+                            )
+                        }
+
+                        AnimatedContent(
+                            targetState = grandTotal,
+                            transitionSpec = {
+                                slideInVertically { it } + fadeIn() togetherWith
+                                        slideOutVertically { -it } + fadeOut()
+                            },
+                            label = "total_anim"
+                        ) { total ->
+                            // 👇 The big amount number flies across
+                            Text(
+                                text = currencyFormatter.format(total),
+                                color = activeColor,
+                                fontSize = 38.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = (-1).sp,
+                                modifier = Modifier.sharedElement(
+                                    sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_AMOUNT),
+                                    animatedVisibilityScope = animatedVisibilityScope,
+                                )
+                            )
+                        }
+
                         Text(
-                            text = currencyFormatter.format(total),
+                            text = "${txState.sources.size} source${if (txState.sources.size != 1) "s" else ""}",
                             color = activeColor,
-                            fontSize = 38.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = (-1).sp
+                            fontSize = 12.sp
                         )
                     }
-
-                    Text(
-                        text = "${txState.sources.size} source${if (txState.sources.size != 1) "s" else ""}",
-                        color = textSecondary,
-                        fontSize = 12.sp
-                    )
                 }
             }
-
             // ── Type Toggle ──────────────────────────────────────────
             Row(
                 modifier = Modifier
@@ -246,9 +287,16 @@ fun HomeScreen(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                TransactionType.values().forEach { type ->
+                TransactionType.entries.forEach { type ->
                     val isSelected = selectedType == type
-                    val tabColor = if (type == TransactionType.INCOME) incomeColor else expenseColor
+                    val tabColor by animateColorAsState(
+                        targetValue = if (type == TransactionType.INCOME)
+                            Color(0xFF00C9A7).copy(alpha = 1f)
+                        else
+                            Color(0xFFFF6B6B).copy(alpha = 1f),
+                        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+                        label = "tabColor"
+                    )
 
                     Box(
                         modifier = Modifier
@@ -273,7 +321,7 @@ fun HomeScreen(
                         ) {
                             Icon(
                                 imageVector = if (type == TransactionType.INCOME)
-                                    Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+                                    Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                                 contentDescription = null,
                                 tint = if (isSelected) tabColor else textSecondary,
                                 modifier = Modifier.size(16.dp)

@@ -1,5 +1,7 @@
 package com.xs.expensetracker
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -17,6 +19,8 @@ import com.xs.expensetracker.ui.theme.ExpenseTrackerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import androidx.core.graphics.toColorInt
+import androidx.core.graphics.drawable.toDrawable
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,6 +28,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ExpenseTrackerTheme {
+                window.setBackgroundDrawable("#FF0D0D14".toColorInt().toDrawable()) // your bgDark hex
                 AppNavigator()
             }
         }

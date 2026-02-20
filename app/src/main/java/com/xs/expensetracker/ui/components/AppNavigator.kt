@@ -1,5 +1,15 @@
 package com.xs.expensetracker.ui.components
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
@@ -7,10 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.navigation3.runtime.NavEntry
-import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberNavBackStack
-import androidx.navigation3.ui.NavDisplay
 import com.xs.expensetracker.ui.screens.AuthScreen
 import com.xs.expensetracker.ui.screens.HomeScreen
 import com.xs.expensetracker.ui.screens.ProfileScreen
@@ -26,39 +33,49 @@ import com.xs.expensetracker.utils.sealed.SourcesRoute
 import com.xs.expensetracker.utils.sealed.SplashRoute
 import org.koin.androidx.compose.koinViewModel
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavigator(
     authViewModel: AuthViewModel = koinViewModel()
 ) {
     val authState by authViewModel.uiState.collectAsState()
-
-    // create backstack
     val backStack = rememberNavBackStack(SplashRoute)
+    val currentKey = backStack.lastOrNull() ?: SplashRoute
 
-    // create NavEntries for current backstack
-    val entries = rememberDecoratedNavEntries(backStack) { key ->
-        when (key) {
-            SplashRoute -> NavEntry(key) {
-                SplashScreen(
+    // Handle system back button / gesture for the whole app
+    BackHandler(enabled = backStack.size > 1) {
+        backStack.removeLastOrNull()
+    }
+
+    SharedTransitionLayout {
+        AnimatedContent(
+            targetState = currentKey,
+            transitionSpec = {
+                (slideInHorizontally(tween(350)) { it } + fadeIn(tween(350)))
+                    .togetherWith(slideOutHorizontally(tween(350)) { -it } + fadeOut(tween(350)))
+            },
+            label = "root_nav"
+        ) { key -> // this: AnimatedVisibilityScope ✅
+
+            when (key) {
+                SplashRoute -> SplashScreen(
                     authState = authState,
                     onResult = { loggedIn ->
                         backStack.clear()
                         backStack.add(if (loggedIn) HomeRoute else AuthRoute)
                     }
                 )
-            }
 
-            AuthRoute -> NavEntry(key) {
-                AuthScreen(
+                AuthRoute -> AuthScreen(
                     onLoginSuccess = {
                         backStack.clear()
                         backStack.add(HomeRoute)
                     }
                 )
-            }
 
-            HomeRoute -> NavEntry(key) {
-                HomeScreen(
+                HomeRoute -> HomeScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     onLogout = {
                         authViewModel.signOut()
                         backStack.clear()
@@ -74,42 +91,31 @@ fun AppNavigator(
                         backStack.add(ProfileRoute)
                     }
                 )
-            }
 
-            ProfileRoute -> NavEntry(key){
-                ProfileScreen(
+                ProfileRoute -> ProfileScreen(
                     onLogout = {
-                     backStack.clear()
-                     backStack.add(AuthRoute)
+                        backStack.clear()
+                        backStack.add(AuthRoute)
                     },
                     onBack = {
                         backStack.removeLastOrNull()
                     }
                 )
-            }
 
-            is SourcesRoute -> NavEntry(key) {
-                SourcesScreen(
+                is SourcesRoute -> SourcesScreen(
+                    type = key.type,
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
+                    onBack = { backStack.removeLastOrNull() }
+                )
+
+                is ReceiptsRoute -> ReceiptsScreen(
                     type = key.type,
                     onBack = { backStack.removeLastOrNull() }
                 )
-            }
 
-            is ReceiptsRoute -> NavEntry(key) {
-                ReceiptsScreen(
-                    type = key.type,
-                    onBack = { backStack.removeLastOrNull() }
-                )
-            }
-
-            else -> NavEntry(key) {
-                Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
+                else -> Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
             }
         }
     }
-
-    NavDisplay(
-        entries = entries,
-        onBack = { backStack.removeLastOrNull() }
-    )
 }
