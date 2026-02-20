@@ -13,12 +13,14 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.xs.expensetracker.ui.screens.AuthScreen
 import com.xs.expensetracker.ui.screens.HomeScreen
+import com.xs.expensetracker.ui.screens.ProfileScreen
 import com.xs.expensetracker.ui.screens.ReceiptsScreen
 import com.xs.expensetracker.ui.screens.SourcesScreen
 import com.xs.expensetracker.ui.screens.SplashScreen
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.utils.sealed.AuthRoute
 import com.xs.expensetracker.utils.sealed.HomeRoute
+import com.xs.expensetracker.utils.sealed.ProfileRoute
 import com.xs.expensetracker.utils.sealed.ReceiptsRoute
 import com.xs.expensetracker.utils.sealed.SourcesRoute
 import com.xs.expensetracker.utils.sealed.SplashRoute
@@ -68,6 +70,21 @@ fun AppNavigator(
                     onNavigateToReceipts = { type ->
                         backStack.add(ReceiptsRoute(type))
                     },
+                    onProfileClicked = {
+                        backStack.add(ProfileRoute)
+                    }
+                )
+            }
+
+            ProfileRoute -> NavEntry(key){
+                ProfileScreen(
+                    onLogout = {
+                     backStack.clear()
+                     backStack.add(AuthRoute)
+                    },
+                    onBack = {
+                        backStack.removeLastOrNull()
+                    }
                 )
             }
 

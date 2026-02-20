@@ -74,6 +74,13 @@ class AuthViewModel(
         }
     }
 
+    fun deleteAccount() {
+        viewModelScope.launch {
+            setAuthState(AuthUiState.Loading)
+            val result = authRepository.deleteAccount()
+        }
+    }
+
     //State Emissions
     fun setAuthState(authState: AuthUiState){
         viewModelScope.launch(Dispatchers.IO) {
