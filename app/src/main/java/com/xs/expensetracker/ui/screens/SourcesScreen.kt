@@ -1,6 +1,11 @@
 package com.xs.expensetracker.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
@@ -318,12 +323,28 @@ fun SourcesScreen(
                                 )
                             }
                         }
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
-                            contentPadding = PaddingValues(bottom = 32.dp)
-                        ) {
-                            items(txState.sources, key = { it.id }) { source ->
+                    } else {LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 32.dp)
+                    ) {
+                        items(txState.sources, key = { it.id }) { source ->
+                            val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+                            AnimatedVisibility(
+                                visibleState = visibleState,
+                                enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                                    initialOffsetY = { it / 2 }
+                                ),
+                                exit = fadeOut(animationSpec = tween(200)) + slideOutHorizontally(
+                                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                                    targetOffsetX = { -it }
+                                ),
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = tween(300),
+                                    fadeOutSpec = tween(200),
+                                    placementSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+                                )
+                            ) {
                                 SourceCard(
                                     source = source,
                                     currency = currency,
@@ -332,6 +353,7 @@ fun SourcesScreen(
                                 )
                             }
                         }
+                    }
                     }
                 }
             }

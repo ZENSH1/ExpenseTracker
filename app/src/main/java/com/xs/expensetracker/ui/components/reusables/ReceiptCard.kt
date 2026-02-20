@@ -54,7 +54,7 @@ fun ReceiptCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val color = if (receipt.type == TransactionType.EXPENSE) incomeColor else expenseColor
+    val color = if (receipt.type == TransactionType.INCOME) incomeColor else expenseColor
     var menuExpanded by remember { mutableStateOf(false) }
 
     Row(
