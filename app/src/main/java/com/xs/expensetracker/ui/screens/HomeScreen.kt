@@ -11,6 +11,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
@@ -44,6 +45,7 @@ fun HomeScreen(
     onLogout: () -> Unit,
     onNavigateToSources: (TransactionType) -> Unit,
     onNavigateToReceipts: (TransactionType) -> Unit,
+    onProfileClicked: () -> Unit
 
 ) {
     val authState by authViewModel.uiState.collectAsState()
@@ -112,7 +114,9 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(Modifier.clickable(true){
+                    onProfileClicked()
+                }) {
                     Text(
                         text = "Hello,",
                         color = textSecondary,
@@ -120,7 +124,7 @@ fun HomeScreen(
                         fontWeight = FontWeight.Normal
                     )
                     Text(
-                        text = user?.displayName?.split(" ")?.firstOrNull() ?: "there",
+                        text = user.displayName ?: "there",
                         color = textPrimary,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
@@ -134,7 +138,9 @@ fun HomeScreen(
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(accentPurple.copy(alpha = 0.2f))
-                            .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape),
+                            .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape).clickable(true){
+                                onProfileClicked()
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
