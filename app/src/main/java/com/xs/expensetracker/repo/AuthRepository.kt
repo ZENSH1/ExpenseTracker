@@ -12,4 +12,6 @@ interface AuthRepository {
     suspend fun signInWithGoogle(idToken: String): Result<FirebaseUser>
 
     suspend fun signOut(): Result<Unit>
+
+    suspend fun deleteAccount(): Result<Unit>
 }

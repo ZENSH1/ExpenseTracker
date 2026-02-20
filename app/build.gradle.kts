@@ -1,9 +1,8 @@
-import org.gradle.kotlin.dsl.support.kotlinCompilerOptions
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.jetbrains.kotlin.serialization)
     id("com.google.gms.google-services")
     id("com.google.firebase.firebase-perf")
     id("com.google.firebase.crashlytics")
@@ -32,6 +31,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
     compileOptions {
@@ -51,14 +51,18 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
 
-
+    implementation(libs.androidx.navigation3.ui)
+    implementation(libs.androidx.navigation3.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+    implementation(libs.androidx.material3.adaptive.navigation3)
+    implementation(libs.kotlinx.serialization.core)
     //COMPOSE -- DEPENDENCIES
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-
+    implementation(libs.androidx.compose.material.icons.extended)
 
     //TEST -- COMPOSE -- DEPENDENCIES
     testImplementation(libs.junit)
@@ -77,9 +81,6 @@ dependencies {
     implementation(libs.firebase.config)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.perf)
-
-    //GSM ADS
-    implementation(libs.play.services.ads)
     // Credential Manager
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)

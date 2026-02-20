@@ -1,15 +1,19 @@
 package com.xs.expensetracker.ui.viewmodels
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.repo.AuthRepository
-import com.xs.expensetracker.utils.AuthUiState
+import com.xs.expensetracker.utils.states.AuthUiState
+import com.xs.expensetracker.utils.GoogleAuthManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class AuthViewModel(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    val googleAuthManager: GoogleAuthManager
 ) : ViewModel() {
 
     private val _uiState =
@@ -35,22 +39,52 @@ class AuthViewModel(
         }
     }
 
+
+    fun signIn(activity: Activity){
+        viewModelScope.launch {
+            runCatching {
+                setAuthState(AuthUiState.Loading)
+                val result = googleAuthManager.signIn(activity)
+                result.onSuccess { text ->
+                    signInWithGoogle(text)
+                }
+                result.onFailure {
+                    setAuthState(AuthUiState.Error(it.message ?: "Auth failed"))
+                }
+            }.onFailure {
+                setAuthState(AuthUiState.Error(it.message ?: "Auth failed"))
+            }
+        }
+    }
+
     fun signInWithGoogle(idToken: String) {
         viewModelScope.launch {
-            _uiState.value = AuthUiState.Loading
-
+            setAuthState(AuthUiState.Loading)
             val result = authRepository.signInWithGoogle(idToken)
-
-            _uiState.value = result.fold(
+            setAuthState(result.fold(
                 onSuccess = { AuthUiState.Authenticated(it) },
                 onFailure = { AuthUiState.Error(it.message ?: "Auth failed") }
-            )
+            ))
         }
     }
 
     fun signOut() {
         viewModelScope.launch {
             authRepository.signOut()
+        }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            setAuthState(AuthUiState.Loading)
+            val result = authRepository.deleteAccount()
+        }
+    }
+
+    //State Emissions
+    fun setAuthState(authState: AuthUiState){
+        viewModelScope.launch(Dispatchers.IO) {
+            _uiState.emit(authState)
         }
     }
 }

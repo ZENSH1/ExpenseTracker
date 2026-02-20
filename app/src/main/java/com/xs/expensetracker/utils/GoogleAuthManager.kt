@@ -1,51 +1,55 @@
 package com.xs.expensetracker.utils
 
+import android.app.Activity
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.xs.expensetracker.utils.Utils.log
 
 class GoogleAuthManager(
-    private val context: Context,
     private val firebaseAuth: FirebaseAuth
 ) {
-
-    private val credentialManager = CredentialManager.create(context)
-
-    suspend fun signIn(): Result<String> {
+    suspend fun signIn(activity: Activity): Result<String> {
         return try {
+            val credentialManager = CredentialManager.create(activity)
 
-            val googleIdOption = GetGoogleIdOption.Builder()
+           /* val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(AppConst.GOOGLE_WEB_CLIENT_ID)
                 .setAutoSelectEnabled(false)
+                .build()*/
+
+            val signInWithGoogleOption = GetSignInWithGoogleOption
+                .Builder(AppConst.GOOGLE_WEB_CLIENT_ID)
                 .build()
 
             val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
+              //  .addCredentialOption(googleIdOption)
+                .addCredentialOption(signInWithGoogleOption) // <-- add this
                 .build()
 
-            val result = credentialManager.getCredential(
-                request = request,
-                context = context
-            )
+            // Launch the selector
+            val result = credentialManager.getCredential(activity, request)
 
             val credential = result.credential
+
             if (credential !is CustomCredential ||
                 credential.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
             ) {
                 return Result.failure(Exception("Invalid credential type"))
             }
 
-            val googleIdTokenCredential =
-                GoogleIdTokenCredential.createFrom(credential.data)
+            val googleIdToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+            Result.success(googleIdToken)
 
-            Result.success(googleIdTokenCredential.idToken)
         } catch (e: Exception) {
+            e.log()
             Result.failure(e)
         }
     }
