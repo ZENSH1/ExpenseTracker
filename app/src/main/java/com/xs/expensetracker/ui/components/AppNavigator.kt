@@ -13,10 +13,14 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import com.xs.expensetracker.ui.screens.AuthScreen
 import com.xs.expensetracker.ui.screens.HomeScreen
+import com.xs.expensetracker.ui.screens.ReceiptsScreen
+import com.xs.expensetracker.ui.screens.SourcesScreen
 import com.xs.expensetracker.ui.screens.SplashScreen
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.utils.sealed.AuthRoute
 import com.xs.expensetracker.utils.sealed.HomeRoute
+import com.xs.expensetracker.utils.sealed.ReceiptsRoute
+import com.xs.expensetracker.utils.sealed.SourcesRoute
 import com.xs.expensetracker.utils.sealed.SplashRoute
 import org.koin.androidx.compose.koinViewModel
 
@@ -41,6 +45,7 @@ fun AppNavigator(
                     }
                 )
             }
+
             AuthRoute -> NavEntry(key) {
                 AuthScreen(
                     onLoginSuccess = {
@@ -49,15 +54,37 @@ fun AppNavigator(
                     }
                 )
             }
+
             HomeRoute -> NavEntry(key) {
                 HomeScreen(
                     onLogout = {
                         authViewModel.signOut()
                         backStack.clear()
                         backStack.add(AuthRoute)
-                    }
+                    },
+                    onNavigateToSources = { type ->
+                        //backStack.add(SourcesRoute(type))
+                    },
+                    onNavigateToReceipts = { type ->
+                      //  backStack.add(ReceiptsRoute(type))
+                    },
                 )
             }
+
+         /*   SourcesRoute -> NavEntry(key) {
+                SourcesScreen(
+                    type = (key as SourcesRoute).type,
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }
+
+            ReceiptsRoute -> NavEntry(key) {
+                ReceiptsScreen(
+                    type = (key as ReceiptsRoute).type,
+                    onBack = { backStack.removeLastOrNull() }
+                )
+            }*/
+
             else -> NavEntry(key) {
                 Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
             }
