@@ -19,18 +19,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.xs.expensetracker.ui.theme.bgDark
 import com.xs.expensetracker.ui.theme.textPrimary
 import com.xs.expensetracker.ui.theme.textSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SourcesScreen(
+fun ReceiptsScreen(
     type: TransactionType,
     onBack: () -> Unit
 ) {
@@ -42,7 +40,7 @@ fun SourcesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "${type.name.lowercase().replaceFirstChar { it.uppercase() }} Sources",
+                        "${type.name.lowercase().replaceFirstChar { it.uppercase() }} Receipts",
                         color = textPrimary,
                         fontWeight = FontWeight.Bold
                     )
@@ -64,7 +62,7 @@ fun SourcesScreen(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("🚧", fontSize = 48.sp)
-                Text("Sources Screen", color = textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Receipts Screen", color = textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text("Coming soon", color = textSecondary, fontSize = 14.sp)
                 Text(
                     type.name.lowercase().replaceFirstChar { it.uppercase() },
@@ -74,14 +72,5 @@ fun SourcesScreen(
                 )
             }
         }
-    }
-}
-
-
-@Preview
-@Composable
-fun PreviewSources(){
-    ExpenseTrackerTheme {
-        SourcesScreen(type = TransactionType.EXPENSE, onBack = {})
     }
 }

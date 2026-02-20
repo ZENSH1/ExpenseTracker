@@ -63,27 +63,27 @@ fun AppNavigator(
                         backStack.add(AuthRoute)
                     },
                     onNavigateToSources = { type ->
-                        //backStack.add(SourcesRoute(type))
+                        backStack.add(SourcesRoute(type))
                     },
                     onNavigateToReceipts = { type ->
-                      //  backStack.add(ReceiptsRoute(type))
+                        backStack.add(ReceiptsRoute(type))
                     },
                 )
             }
 
-         /*   SourcesRoute -> NavEntry(key) {
+            is SourcesRoute -> NavEntry(key) {
                 SourcesScreen(
-                    type = (key as SourcesRoute).type,
+                    type = key.type,
                     onBack = { backStack.removeLastOrNull() }
                 )
             }
 
-            ReceiptsRoute -> NavEntry(key) {
+            is ReceiptsRoute -> NavEntry(key) {
                 ReceiptsScreen(
-                    type = (key as ReceiptsRoute).type,
+                    type = key.type,
                     onBack = { backStack.removeLastOrNull() }
                 )
-            }*/
+            }
 
             else -> NavEntry(key) {
                 Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
