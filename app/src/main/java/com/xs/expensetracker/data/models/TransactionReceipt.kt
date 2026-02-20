@@ -6,7 +6,7 @@ data class TransactionReceipt(
     val id: String = "",
     val trackerId: String = "",
     val sourceId: String = "",
-    val type: TransactionType = TransactionType.EXPENSE,
+    val type: TransactionType? = null,
     val name: String = "",
     val description: String = "",
     val amount: Double = 0.0,

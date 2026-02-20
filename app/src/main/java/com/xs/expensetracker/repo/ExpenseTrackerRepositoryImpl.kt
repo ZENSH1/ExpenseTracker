@@ -7,17 +7,29 @@ import com.xs.expensetracker.data.enums.TransactionType
 import com.xs.expensetracker.data.models.Tracker
 import com.xs.expensetracker.data.models.TransactionReceipt
 import com.xs.expensetracker.data.models.TransactionSource
+import com.xs.expensetracker.utils.FirebaseConst
+import com.xs.expensetracker.utils.FirebaseConst.AMOUNT
+import com.xs.expensetracker.utils.FirebaseConst.DATE
+import com.xs.expensetracker.utils.FirebaseConst.OWNER_ID_MISSING
+import com.xs.expensetracker.utils.FirebaseConst.RECEIPTS
+import com.xs.expensetracker.utils.FirebaseConst.SHARED_WITH
+import com.xs.expensetracker.utils.FirebaseConst.SOURCES
+import com.xs.expensetracker.utils.FirebaseConst.TOTAL_AMOUNT
+import com.xs.expensetracker.utils.FirebaseConst.TRACKERS
+import com.xs.expensetracker.utils.FirebaseConst.TRACK_NAME_CANNOT_BE_EMPTY
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class ExpenseTrackerRepositoryImpl(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) : ExpenseTrackerRepository {
 
-    private val trackersRef get() = firestore.collection("trackers")
+    private val trackersRef get() = firestore.collection(TRACKERS)
 
     // ------------------------------------------------
     // TRACKERS
@@ -31,17 +43,15 @@ class ExpenseTrackerRepositoryImpl(
         }
 
         val listener = trackersRef
-            .whereArrayContainsAny("sharedWith", listOf(userId))
+            .whereArrayContainsAny(SHARED_WITH, listOf(userId))
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
                 }
-
                 val trackers = snapshot?.documents
                     ?.mapNotNull { it.toObject(Tracker::class.java)?.copy(id = it.id) }
                     ?: emptyList()
-
                 trySend(trackers)
             }
 
@@ -53,8 +63,8 @@ class ExpenseTrackerRepositoryImpl(
         ownerId: String
     ): Result<String> = runCatching {
 
-        require(name.isNotBlank()) { "Tracker name cannot be empty" }
-        require(ownerId.isNotBlank()) { "OwnerId missing" }
+        require(name.isNotBlank()) { TRACK_NAME_CANNOT_BE_EMPTY }
+        require(ownerId.isNotBlank()) { OWNER_ID_MISSING }
 
         val doc = trackersRef.document()
 
@@ -83,16 +93,16 @@ class ExpenseTrackerRepositoryImpl(
 
             val snapshot = transaction.get(trackerRef)
             if (!snapshot.exists()) {
-                throw IllegalStateException("Tracker not found")
+                throw IllegalStateException(FirebaseConst.TRACK_NOT_FOUND)
             }
 
             val current =
-                snapshot.get("sharedWith") as? List<String> ?: emptyList()
+                snapshot.get(SHARED_WITH) as? List<String> ?: emptyList()
 
             if (!current.contains(userIdToShare)) {
                 transaction.update(
                     trackerRef,
-                    "sharedWith",
+                    SHARED_WITH,
                     current + userIdToShare
                 )
             }
@@ -122,10 +132,10 @@ class ExpenseTrackerRepositoryImpl(
 
         var query: Query = trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(FirebaseConst.SOURCES)
 
         if (type != null) {
-            query = query.whereEqualTo("type", type.name)
+            query = query.whereEqualTo(FirebaseConst.TYPE, type.name)
         }
 
         val listener = query.addSnapshotListener { snapshot, error ->
@@ -157,7 +167,7 @@ class ExpenseTrackerRepositoryImpl(
 
         val doc = trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(FirebaseConst.SOURCES)
             .document()
 
         val source = TransactionSource(
@@ -182,7 +192,7 @@ class ExpenseTrackerRepositoryImpl(
 
         trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(FirebaseConst.SOURCES)
             .document(sourceId)
             .delete()
             .await()
@@ -205,16 +215,15 @@ class ExpenseTrackerRepositoryImpl(
 
         val listener = trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(SOURCES)
             .document(sourceId)
-            .collection("receipts")
-            .orderBy("date", Query.Direction.DESCENDING)
+            .collection(RECEIPTS)
+            .orderBy(DATE, Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     close(error)
                     return@addSnapshotListener
                 }
-
                 val receipts = snapshot?.documents
                     ?.mapNotNull {
                         it.toObject(TransactionReceipt::class.java)
@@ -230,6 +239,7 @@ class ExpenseTrackerRepositoryImpl(
     override suspend fun addReceipt(
         trackerId: String,
         sourceId: String,
+        type: TransactionType,
         name: String,
         description: String,
         amount: Double,
@@ -241,21 +251,21 @@ class ExpenseTrackerRepositoryImpl(
 
         val sourceRef = trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(SOURCES)
             .document(sourceId)
 
         val receiptRef = sourceRef
-            .collection("receipts")
+            .collection(RECEIPTS)
             .document()
 
         firestore.runTransaction { transaction ->
 
             val sourceSnap = transaction.get(sourceRef)
             if (!sourceSnap.exists())
-                throw IllegalStateException("Source not found")
+                throw IllegalStateException(FirebaseConst.SOURCE_NOT_FOUND)
 
             val currentTotal =
-                sourceSnap.getDouble("totalAmount") ?: 0.0
+                sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
             val receipt = TransactionReceipt(
                 id = receiptRef.id,
@@ -264,13 +274,14 @@ class ExpenseTrackerRepositoryImpl(
                 name = name.trim(),
                 description = description,
                 amount = amount,
-                date = date
+                date = date,
+                type = type
             )
 
             transaction.set(receiptRef, receipt)
             transaction.update(
                 sourceRef,
-                "totalAmount",
+                TOTAL_AMOUNT,
                 currentTotal + amount
             )
         }.await()
@@ -286,21 +297,21 @@ class ExpenseTrackerRepositoryImpl(
 
         val sourceRef = trackersRef
             .document(trackerId)
-            .collection("sources")
+            .collection(SOURCES)
             .document(sourceId)
 
         val receiptRef = sourceRef
-            .collection("receipts")
+            .collection(RECEIPTS)
             .document(receipt.id)
 
         firestore.runTransaction { transaction ->
 
             val oldSnap = transaction.get(receiptRef)
             if (!oldSnap.exists())
-                throw IllegalStateException("Receipt not found")
+                throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
             val oldAmount =
-                oldSnap.getDouble("amount") ?: 0.0
+                oldSnap.getDouble(AMOUNT) ?: 0.0
 
             val delta = receipt.amount - oldAmount
 
@@ -308,11 +319,11 @@ class ExpenseTrackerRepositoryImpl(
 
             val sourceSnap = transaction.get(sourceRef)
             val currentTotal =
-                sourceSnap.getDouble("totalAmount") ?: 0.0
+                sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
             transaction.update(
                 sourceRef,
-                "totalAmount",
+                TOTAL_AMOUNT,
                 currentTotal + delta
             )
         }.await()
@@ -323,36 +334,37 @@ class ExpenseTrackerRepositoryImpl(
         sourceId: String,
         receiptId: String
     ): Result<Unit> = runCatching {
+        return@runCatching withContext(Dispatchers.IO){
 
-        val sourceRef = trackersRef
-            .document(trackerId)
-            .collection("sources")
-            .document(sourceId)
+            val sourceRef = trackersRef
+                .document(trackerId)
+                .collection(SOURCES)
+                .document(sourceId)
 
-        val receiptRef = sourceRef
-            .collection("receipts")
-            .document(receiptId)
+            val receiptRef = sourceRef
+                .collection(RECEIPTS)
+                .document(receiptId)
 
-        firestore.runTransaction { transaction ->
+            firestore.runTransaction { transaction ->
 
-            val receiptSnap = transaction.get(receiptRef)
-            if (!receiptSnap.exists())
-                throw IllegalStateException("Receipt not found")
+                // ✅ All reads first
+                val receiptSnap = transaction.get(receiptRef)
+                if (!receiptSnap.exists())
+                    throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
-            val amount =
-                receiptSnap.getDouble("amount") ?: 0.0
+                val sourceSnap = transaction.get(sourceRef)
 
-            transaction.delete(receiptRef)
+                // ✅ All writes after
+                val amount = receiptSnap.getDouble(AMOUNT) ?: 0.0
+                val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
-            val sourceSnap = transaction.get(sourceRef)
-            val currentTotal =
-                sourceSnap.getDouble("totalAmount") ?: 0.0
-
-            transaction.update(
-                sourceRef,
-                "totalAmount",
-                currentTotal - amount
-            )
-        }.await()
+                transaction.delete(receiptRef)
+                transaction.update(
+                    sourceRef,
+                    TOTAL_AMOUNT,
+                    currentTotal - amount
+                )
+            }.await()
+        }
     }
 }

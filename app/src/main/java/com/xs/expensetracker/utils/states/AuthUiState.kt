@@ -1,4 +1,4 @@
-package com.xs.expensetracker.utils
+package com.xs.expensetracker.utils.states
 
 import com.google.firebase.auth.FirebaseUser
 
