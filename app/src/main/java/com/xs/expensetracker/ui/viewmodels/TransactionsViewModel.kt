@@ -22,9 +22,68 @@ class TransactionsViewModel(
 
     private val _uiState = MutableStateFlow(TransactionsUiState())
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
-
+    private var observeTrackersJob: Job? = null
     private var observeSourcesJob: Job? = null
     private var observeReceiptsJob: Job? = null
+
+    // ------------------------------------------------
+    // TRACKERS
+    // ------------------------------------------------
+
+    fun observeTrackers(userId: String) {
+        observeTrackersJob?.cancel()
+
+        observeTrackersJob = repository
+            .observeTrackers(userId)
+            .onEach { trackers ->
+                _uiState.update { it.copy(trackers = trackers) }
+            }
+            .catch { e ->
+                _uiState.update { it.copy(error = e.message) }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun createTracker(name: String, ownerId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val result = repository.createTracker(name, ownerId)
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
+    }
+
+    fun shareTracker(trackerId: String, userIdToShare: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            val result = repository.shareTracker(trackerId, userIdToShare)
+
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = result.exceptionOrNull()?.message
+                )
+            }
+        }
+    }
+
+    fun deleteTracker(trackerId: String) {
+        viewModelScope.launch {
+            repository.deleteTracker(trackerId)
+                .onFailure { error ->
+                    _uiState.update { it.copy(error = error.message) }
+                }
+        }
+    }
+
+
 
     // ------------------------------------------------
     // SOURCES
