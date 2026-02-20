@@ -31,6 +31,9 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    // -- new params --
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
     onLogout: () -> Unit,
     onBack: () -> Unit

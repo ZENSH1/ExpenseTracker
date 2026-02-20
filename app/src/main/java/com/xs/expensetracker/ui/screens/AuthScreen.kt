@@ -28,6 +28,9 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun AuthScreen(
+    // -- new params --
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
     onLoginSuccess: () -> Unit
 ) {

@@ -59,6 +59,8 @@ fun AppNavigator(
 
             when (key) {
                 SplashRoute -> SplashScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     authState = authState,
                     onResult = { loggedIn ->
                         backStack.clear()
@@ -67,6 +69,8 @@ fun AppNavigator(
                 )
 
                 AuthRoute -> AuthScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     onLoginSuccess = {
                         backStack.clear()
                         backStack.add(HomeRoute)
@@ -93,6 +97,8 @@ fun AppNavigator(
                 )
 
                 ProfileRoute -> ProfileScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     onLogout = {
                         backStack.clear()
                         backStack.add(AuthRoute)
@@ -110,8 +116,10 @@ fun AppNavigator(
                 )
 
                 is ReceiptsRoute -> ReceiptsScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     type = key.type,
-                    onBack = { backStack.removeLastOrNull() }
+                    onBack = { backStack.removeLastOrNull() },
                 )
 
                 else -> Box(Modifier.fillMaxSize()) { Text("Unknown destination") }

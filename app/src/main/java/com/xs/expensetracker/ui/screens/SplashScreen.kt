@@ -1,5 +1,7 @@
 package com.xs.expensetracker.ui.screens
 
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -11,6 +13,10 @@ import com.xs.expensetracker.utils.states.AuthUiState
 
 @Composable
 fun SplashScreen(
+
+    // -- new params --
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     authState: AuthUiState,
     onResult: (Boolean) -> Unit
 ) {
