@@ -9,8 +9,12 @@ import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
@@ -268,11 +272,14 @@ fun ReceiptsScreen(
 
                     // ── Source Filter Chips ─────────────────────────────
                     if (txState.sources.isNotEmpty()) {
-                        LazyRow(modifier = Modifier.sharedBounds(
-                            sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                        ),horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyRow(
+                            modifier = Modifier.sharedBounds(
+                                sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             item {
                                 FilterChip(
                                     selected = filterSourceId == null,
@@ -292,29 +299,49 @@ fun ReceiptsScreen(
                                     )
                                 )
                             }
-                            items(txState.sources.filter { it.type == filterType || filterType == null }) { source ->
-                                val chipColor =
-                                    if (source.type == TransactionType.INCOME) incomeColor else expenseColor
-                                FilterChip(
-                                    selected = filterSourceId == source.id,
-                                    onClick = {
-                                        filterSourceId =
-                                            if (filterSourceId == source.id) null else source.id
-                                    },
-                                    label = { Text(source.name, fontSize = 12.sp, maxLines = 1) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = chipColor.copy(alpha = 0.15f),
-                                        selectedLabelColor = chipColor,
-                                        containerColor = bgCard,
-                                        labelColor = textSecondary
+                            items(
+                                txState.sources.filter { it.type == filterType || filterType == null },
+                                key = { it.id }
+                            ) { source ->
+                                val chipColor = if (source.type == TransactionType.INCOME) incomeColor else expenseColor
+
+                                val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+
+                                AnimatedVisibility(
+                                    visibleState = visibleState,
+                                    enter = fadeIn(tween(300)) + scaleIn(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                                        initialScale = 0.7f
+                                    ) + expandHorizontally(
+                                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
                                     ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = filterSourceId == source.id,
-                                        selectedBorderColor = chipColor.copy(alpha = 0.4f),
-                                        borderColor = textSecondary.copy(alpha = 0.2f)
+                                    exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.7f) + shrinkHorizontally(
+                                        animationSpec = tween(200)
+                                    ),
+                                    modifier = Modifier.animateItem(
+                                        fadeInSpec = tween(300),
+                                        fadeOutSpec = tween(200),
+                                        placementSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
                                     )
-                                )
+                                ) {
+                                    FilterChip(
+                                        selected = filterSourceId == source.id,
+                                        onClick = { filterSourceId = if (filterSourceId == source.id) null else source.id },
+                                        label = { Text(source.name, fontSize = 12.sp, maxLines = 1) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = chipColor.copy(alpha = 0.15f),
+                                            selectedLabelColor = chipColor,
+                                            containerColor = bgCard,
+                                            labelColor = textSecondary
+                                        ),
+                                        border = FilterChipDefaults.filterChipBorder(
+                                            enabled = true,
+                                            selected = filterSourceId == source.id,
+                                            selectedBorderColor = chipColor.copy(alpha = 0.4f),
+                                            borderColor = textSecondary.copy(alpha = 0.2f)
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -344,8 +371,6 @@ fun ReceiptsScreen(
                             }
                         }
                     } else {
-
-
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(bottom = 32.dp)
