@@ -64,7 +64,7 @@ fun HomeScreen(
     val trackerId = user?.uid ?: return  // early return if not authenticated
     val onAddSource = { showAddSourceModal = true }
     val onAddReceipt = { showAddReceiptModal = true }
-    var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
+    var selectedType by remember { mutableStateOf(TransactionType.INCOME) }
 
 
     //Colors
