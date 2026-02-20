@@ -6,4 +6,5 @@ object Utils {
     fun Any.log(){
         Log.d("ExpenseTracker", this.toString())
     }
+
 }

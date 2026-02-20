@@ -16,6 +16,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.data.enums.TransactionType
+import com.xs.expensetracker.ui.theme.bgCard
+import com.xs.expensetracker.ui.theme.bgDark
+import com.xs.expensetracker.ui.theme.expenseColor
+import com.xs.expensetracker.ui.theme.incomeColor
+import com.xs.expensetracker.ui.theme.textPrimary
+import com.xs.expensetracker.ui.theme.textSecondary
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,13 +37,6 @@ fun AddSourceModal(
     var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
 
-    val bgDark = Color(0xFF0D0D14)
-    val bgCard = Color(0xFF16162A)
-    val accentPurple = Color(0xFF7C5CFC)
-    val incomeColor = Color(0xFF00C9A7)
-    val expenseColor = Color(0xFFFF6B6B)
-    val textPrimary = Color(0xFFF0F0FF)
-    val textSecondary = Color(0xFF8A8AAF)
     val activeColor = if (selectedType == TransactionType.INCOME) incomeColor else expenseColor
 
     // Dismiss after successful save (loading goes false and no error)

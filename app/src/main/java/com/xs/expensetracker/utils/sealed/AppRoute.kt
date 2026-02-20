@@ -16,8 +16,7 @@ object AuthRoute : AppRoute
 @Serializable
 object HomeRoute : AppRoute
 
-@Serializable
+
 data class SourcesRoute(val type: TransactionType) : AppRoute
 
-@Serializable
 data class ReceiptsRoute(val type: TransactionType) : AppRoute
