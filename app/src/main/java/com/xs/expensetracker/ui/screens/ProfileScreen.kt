@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
@@ -18,6 +19,8 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
+import com.xs.expensetracker.ui.components.reusables.ActionButton
+import com.xs.expensetracker.ui.components.reusables.InfoRow
 import com.xs.expensetracker.ui.components.reusables.SectionLabel
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
@@ -254,11 +257,11 @@ fun ProfileScreen(
 
                 InfoCard {
                     InfoRow(icon = Icons.Filled.Person, label = "Display Name", value = user?.displayName ?: "—")
-                    Divider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
+                    HorizontalDivider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
                     InfoRow(icon = Icons.Filled.Email, label = "Email", value = user?.email ?: "—")
-                    Divider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
+                    HorizontalDivider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
                     InfoRow(icon = Icons.Filled.Fingerprint, label = "User ID", value = user?.uid ?: "—", valueColor = textSecondary)
-                    Divider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
+                    HorizontalDivider(color = textSecondary.copy(alpha = 0.08f), thickness = 0.5.dp)
                     InfoRow(
                         icon = Icons.AutoMirrored.Filled.Login,
                         label = "Provider",
@@ -271,7 +274,7 @@ fun ProfileScreen(
 
                 // Sign out
                 ActionButton(
-                    icon = Icons.Filled.Logout,
+                    icon = Icons.AutoMirrored.Filled.Logout,
                     label = "Sign Out",
                     sublabel = "You can sign back in anytime",
                     color = accentPurple,
@@ -318,58 +321,5 @@ private fun InfoCard(content: @Composable ColumnScope.() -> Unit) {
     )
 }
 
-@Composable
-private fun InfoRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String,
-    valueColor: Color = textPrimary
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = accentPurple.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = textSecondary, fontSize = 11.sp)
-            Text(value, color = valueColor, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
 
-@Composable
-private fun ActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    sublabel: String,
-    color: Color,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(color.copy(alpha = 0.07f))
-            .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(color.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, color = color, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(sublabel, color = textSecondary, fontSize = 12.sp)
-        }
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = color.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
-    }
-}
+
