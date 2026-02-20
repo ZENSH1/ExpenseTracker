@@ -57,6 +57,7 @@ interface ExpenseTrackerRepository {
     suspend fun addReceipt(
         trackerId: String,
         sourceId: String,
+        type: TransactionType,
         name: String,
         description: String,
         amount: Double,

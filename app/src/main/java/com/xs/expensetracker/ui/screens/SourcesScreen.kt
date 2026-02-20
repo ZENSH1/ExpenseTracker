@@ -23,6 +23,7 @@ import com.xs.expensetracker.data.models.TransactionSource
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
+import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
@@ -31,6 +32,10 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SourcesScreen(
+    // -- new params --
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    //
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
@@ -101,7 +106,6 @@ fun SourcesScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(bgDark)) {
-
         // Ambient glow
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
@@ -151,46 +155,80 @@ fun SourcesScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
-                // ── Summary Card ────────────────────────────────────
-                val total = txState.sources.sumOf { it.totalAmount }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(bgCard)
-                        .border(1.dp, activeColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
-                        .padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                with(sharedTransitionScope) {
+
+                    // ── Summary Card ────────────────────────────────────
+                    val total = txState.sources.sumOf { it.totalAmount }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            // 👇 Matches the card bounds from HomeScreen
+                            .sharedBounds(
+                                sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                            )
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(bgCard)
+                            .border(1.dp, activeColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                            .padding(20.dp)
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = "Total ${filterType?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "All"}",
-                                color = textSecondary, fontSize = 12.sp
-                            )
-                            Text(
-                                text = currency.format(total),
-                                color = activeColor, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(text = "${txState.sources.size} sources", color = textSecondary, fontSize = 12.sp)
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(activeColor.copy(alpha = 0.1f))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                // 👇 Label flies in from HomeScreen's label
+                                Text(
+                                    text = "Total ${filterType?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "All"}",
+                                    color = textSecondary,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.sharedElement(
+                                        sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_LABEL),
+                                        animatedVisibilityScope = animatedVisibilityScope
+                                    )
+                                )
+                                // 👇 Amount flies in from HomeScreen's amount
+                                Text(
+                                    text = currency.format(total),
+                                    color = activeColor,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.sharedElement(
+                                        sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_AMOUNT),
+                                        animatedVisibilityScope = animatedVisibilityScope
+                                    )
+                                )
+                            }
+                            Column(
+                                horizontalAlignment = Alignment.End,
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = if (filterType == TransactionType.INCOME) "↑ Income" else "↓ Expense",
-                                    color = activeColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                                    text = "${txState.sources.size} sources",
+                                    color = textSecondary,
+                                    fontSize = 12.sp
                                 )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(activeColor.copy(alpha = 0.1f))
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = if (filterType == TransactionType.INCOME) "↑ Income" else "↓ Expense",
+                                        color = activeColor,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
                             }
                         }
                     }
+
+                    // ... rest of SourcesScreen unchanged ...
                 }
 
                 // ── Type Filter ─────────────────────────────────────

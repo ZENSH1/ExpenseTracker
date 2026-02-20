@@ -1,6 +1,5 @@
 package com.xs.expensetracker.repo
 
-import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -18,7 +17,6 @@ import com.xs.expensetracker.utils.FirebaseConst.SOURCES
 import com.xs.expensetracker.utils.FirebaseConst.TOTAL_AMOUNT
 import com.xs.expensetracker.utils.FirebaseConst.TRACKERS
 import com.xs.expensetracker.utils.FirebaseConst.TRACK_NAME_CANNOT_BE_EMPTY
-import com.xs.expensetracker.utils.Utils.log
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -239,6 +237,7 @@ class ExpenseTrackerRepositoryImpl(
     override suspend fun addReceipt(
         trackerId: String,
         sourceId: String,
+        type: TransactionType,
         name: String,
         description: String,
         amount: Double,
@@ -344,19 +343,18 @@ class ExpenseTrackerRepositoryImpl(
 
         firestore.runTransaction { transaction ->
 
+            // ✅ All reads first
             val receiptSnap = transaction.get(receiptRef)
             if (!receiptSnap.exists())
                 throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
-            val amount =
-                receiptSnap.getDouble(AMOUNT) ?: 0.0
+            val sourceSnap = transaction.get(sourceRef)
+
+            // ✅ All writes after
+            val amount = receiptSnap.getDouble(AMOUNT) ?: 0.0
+            val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
             transaction.delete(receiptRef)
-
-            val sourceSnap = transaction.get(sourceRef)
-            val currentTotal =
-                sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
-
             transaction.update(
                 sourceRef,
                 TOTAL_AMOUNT,

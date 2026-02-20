@@ -44,7 +44,7 @@ fun AddReceiptModal(
     var selectedSourceId by remember { mutableStateOf("") }
     var sourceDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDateMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var selectedDateMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val selectedSource = txState.sources.find { it.id == selectedSourceId }
@@ -304,6 +304,7 @@ fun AddReceiptModal(
                         name = name.trim(),
                         description = description.trim(),
                         amount = amountText.toDoubleOrNull() ?: 0.0,
+                        type = selectedSource?.type ?: TransactionType.EXPENSE,
                         date = selectedDateMillis
                     )
                 },
