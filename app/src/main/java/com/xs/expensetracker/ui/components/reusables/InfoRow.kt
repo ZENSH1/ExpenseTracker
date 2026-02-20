@@ -1,6 +1,7 @@
 package com.xs.expensetracker.ui.components.reusables
 
 import android.content.ClipData
+import android.widget.Toast
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.*
@@ -28,6 +30,7 @@ import com.xs.expensetracker.ui.theme.incomeColor
 import com.xs.expensetracker.ui.theme.textPrimary
 import com.xs.expensetracker.ui.theme.textSecondary
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
+import com.xs.expensetracker.utils.Utils.showToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -42,6 +45,8 @@ fun InfoRow(
     valueColor: Color = textPrimary
 ) {
     val clipboardManager = LocalClipboard.current
+    val context = LocalContext.current
+
     val copyToClipboard: () -> Unit = {
         CoroutineScope(Dispatchers.Default).launch {
             clipboardManager.setClipEntry(
@@ -52,6 +57,7 @@ fun InfoRow(
                     )
                 )
             )
+            showToast(context,"Copied to clipboard")
         }
     }
 
