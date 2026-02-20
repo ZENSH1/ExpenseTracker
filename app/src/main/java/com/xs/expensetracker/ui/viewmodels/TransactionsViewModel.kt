@@ -7,6 +7,7 @@ import com.xs.expensetracker.data.models.TransactionReceipt
 import com.xs.expensetracker.repo.ExpenseTrackerRepository
 import com.xs.expensetracker.utils.Utils.log
 import com.xs.expensetracker.utils.states.TransactionsUiState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TransactionsViewModel(
     private val repository: ExpenseTrackerRepository
@@ -221,6 +223,8 @@ class TransactionsViewModel(
         receiptId: String
     ) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
             repository.deleteReceipt(
                 trackerId,
                 sourceId,
@@ -228,8 +232,10 @@ class TransactionsViewModel(
             ).onFailure { error->
                 error.stackTraceToString().log()
                 _uiState.update {
-                    it.copy(error = error.message)
+                    it.copy(error = error.message, isLoading = false)
                 }
+            }.onSuccess {
+                _uiState.update { it.copy(isLoading = false) }
             }
         }
     }
