@@ -4,7 +4,7 @@ import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.repo.AuthRepository
-import com.xs.expensetracker.utils.AuthUiState
+import com.xs.expensetracker.utils.states.AuthUiState
 import com.xs.expensetracker.utils.GoogleAuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow

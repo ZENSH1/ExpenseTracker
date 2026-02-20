@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.xs.expensetracker.utils.AuthUiState
+import com.xs.expensetracker.utils.states.AuthUiState
 
 @Composable
 fun SplashScreen(

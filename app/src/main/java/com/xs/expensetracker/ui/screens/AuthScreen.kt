@@ -1,6 +1,5 @@
 package com.xs.expensetracker.ui.screens
 
-import com.xs.expensetracker.utils.AuthUiState
 import android.app.Activity
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -17,10 +16,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.R
+import com.xs.expensetracker.ui.components.reusables.GoogleGLogo
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.utils.states.AuthUiState
+import com.xs.expensetracker.utils.PreviewScreens
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -280,34 +283,11 @@ fun AuthScreen(
     }
 }
 
+
+@Preview
 @Composable
-private fun GoogleGLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val cx = size.width / 2f
-        val cy = size.height / 2f
-        val r = minOf(size.width, size.height) / 2f
-        val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = r * 0.28f)
-        val oval = androidx.compose.ui.geometry.Size(r * 2, r * 2)
-        val topLeft = Offset(cx - r, cy - r)
-
-        // Red: bottom-right, stops at ~-30 (330°)
-        drawArc(color = Color(0xFFEA4335), startAngle = 235f, sweepAngle = 95f,
-            useCenter = false, topLeft = topLeft, size = oval, style = stroke)
-        // Yellow: bottom-left
-        drawArc(color = Color(0xFFFBBC05), startAngle = 175f, sweepAngle = 60f,
-            useCenter = false, topLeft = topLeft, size = oval, style = stroke)
-        // Green: left to bottom
-        drawArc(color = Color(0xFF34A853), startAngle = 120f, sweepAngle = 55f,
-            useCenter = false, topLeft = topLeft, size = oval, style = stroke)
-        // Blue: top sweeping right, leaves gap on right side for the crossbar
-        drawArc(color = Color(0xFF4285F4), startAngle = -60f, sweepAngle = 180f,
-            useCenter = false, topLeft = topLeft, size = oval, style = stroke)
-
-        // Horizontal crossbar of G (right side only, at vertical center)
-        drawRect(
-            color = Color(0xFF4285F4),
-            topLeft = Offset(cx, cy - r * 0.14f),
-            size = androidx.compose.ui.geometry.Size(r * 0.95f, r * 0.28f)
-        )
+fun PreviewGoogle(){
+    PreviewScreens {
+        GoogleGLogo()
     }
 }
