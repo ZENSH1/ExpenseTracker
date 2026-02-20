@@ -31,7 +31,7 @@ import com.xs.expensetracker.ui.theme.textPrimary
 import com.xs.expensetracker.ui.theme.textSecondary
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
-import com.xs.expensetracker.utils.AuthUiState
+import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
 import java.util.Locale
