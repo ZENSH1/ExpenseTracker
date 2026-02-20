@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Error
@@ -140,7 +141,7 @@ fun ReceiptsScreen(
                     title = { Text("Receipts", color = textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
                         }
                     },
                     actions = {
@@ -258,10 +259,11 @@ fun ReceiptsScreen(
                         }
                     }
                 } else {
+
+
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 32.dp)) {
                         items(filteredReceipts, key = { it.id }) { receipt ->
                             val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
-
                             AnimatedVisibility(
                                 visibleState = visibleState,
                                 enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
@@ -291,60 +293,84 @@ fun ReceiptsScreen(
                     }
                 }
             }
-            AnimatedVisibility(
-                visible = txState.isLoading,
-                enter = fadeIn(tween(300)) + scaleIn(
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    initialScale = 0.6f
-                ),
-                exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.6f)
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
-                    strokeWidth = 2.5.dp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
+        }
 
-            AnimatedVisibility(
-                visible = txState.error != null,
-                enter = fadeIn(tween(300)) + slideInVertically(
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    initialOffsetY = { -it }
-                ),
-                exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { -it })
+
+        // ── Floating Loading Indicator ───────────────────────
+        AnimatedVisibility(
+            visible = txState.isLoading,
+            enter = fadeIn(tween(300)) + slideInVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                initialOffsetY = { it }
+            ),
+            exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50.dp))
+                    .background(bgCard)
+                    .border(1.dp, activeColor.copy(alpha = 0.2f), RoundedCornerShape(50.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
             ) {
                 Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(expenseColor.copy(alpha = 0.1f))
-                        .clickable { transactionsViewModel.clearError() }
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Error,
-                        contentDescription = null,
-                        tint = expenseColor,
-                        modifier = Modifier.size(14.dp)
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = activeColor
                     )
-                    Text(
-                        text = txState.error ?: "",
-                        color = expenseColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Dismiss",
-                        tint = expenseColor.copy(alpha = 0.7f),
-                        modifier = Modifier.size(12.dp)
-                    )
+                    Text("Loading...", color = textSecondary, fontSize = 13.sp)
                 }
             }
         }
+
+
+        // ── Floating Error Snackbar ──────────────────────────
+
+        AnimatedVisibility(
+            visible = txState.error != null,
+            enter = fadeIn(tween(300)) + slideInVertically(
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                initialOffsetY = { it }
+            ),
+            exit = fadeOut(tween(200)) + slideOutVertically(targetOffsetY = { it }),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50.dp))
+                    .background(bgCard)
+                    .border(1.dp, expenseColor.copy(alpha = 0.3f), RoundedCornerShape(50.dp))
+                    .clickable { transactionsViewModel.clearError() }
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Error,
+                    contentDescription = null,
+                    tint = expenseColor,
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = txState.error ?: "",
+                    color = textPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Icon(
+                    imageVector = Icons.Rounded.Close,
+                    contentDescription = "Dismiss",
+                    tint = textSecondary,
+                    modifier = Modifier.size(13.dp)
+                )
+            }
+        }
     }
+
 }
 
 

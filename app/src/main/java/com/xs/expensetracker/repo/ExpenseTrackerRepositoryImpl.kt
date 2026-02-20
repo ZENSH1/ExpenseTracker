@@ -17,10 +17,12 @@ import com.xs.expensetracker.utils.FirebaseConst.SOURCES
 import com.xs.expensetracker.utils.FirebaseConst.TOTAL_AMOUNT
 import com.xs.expensetracker.utils.FirebaseConst.TRACKERS
 import com.xs.expensetracker.utils.FirebaseConst.TRACK_NAME_CANNOT_BE_EMPTY
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class ExpenseTrackerRepositoryImpl(
     private val firestore: FirebaseFirestore,
@@ -263,7 +265,7 @@ class ExpenseTrackerRepositoryImpl(
                 throw IllegalStateException(FirebaseConst.SOURCE_NOT_FOUND)
 
             val currentTotal =
-                sourceSnap.getDouble(FirebaseConst.TOTAL_AMOUNT) ?: 0.0
+                sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
             val receipt = TransactionReceipt(
                 id = receiptRef.id,
@@ -272,13 +274,14 @@ class ExpenseTrackerRepositoryImpl(
                 name = name.trim(),
                 description = description,
                 amount = amount,
-                date = date
+                date = date,
+                type = type
             )
 
             transaction.set(receiptRef, receipt)
             transaction.update(
                 sourceRef,
-                FirebaseConst.TOTAL_AMOUNT,
+                TOTAL_AMOUNT,
                 currentTotal + amount
             )
         }.await()
@@ -331,35 +334,37 @@ class ExpenseTrackerRepositoryImpl(
         sourceId: String,
         receiptId: String
     ): Result<Unit> = runCatching {
+        return@runCatching withContext(Dispatchers.IO){
 
-        val sourceRef = trackersRef
-            .document(trackerId)
-            .collection(SOURCES)
-            .document(sourceId)
+            val sourceRef = trackersRef
+                .document(trackerId)
+                .collection(SOURCES)
+                .document(sourceId)
 
-        val receiptRef = sourceRef
-            .collection(RECEIPTS)
-            .document(receiptId)
+            val receiptRef = sourceRef
+                .collection(RECEIPTS)
+                .document(receiptId)
 
-        firestore.runTransaction { transaction ->
+            firestore.runTransaction { transaction ->
 
-            // ✅ All reads first
-            val receiptSnap = transaction.get(receiptRef)
-            if (!receiptSnap.exists())
-                throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
+                // ✅ All reads first
+                val receiptSnap = transaction.get(receiptRef)
+                if (!receiptSnap.exists())
+                    throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
-            val sourceSnap = transaction.get(sourceRef)
+                val sourceSnap = transaction.get(sourceRef)
 
-            // ✅ All writes after
-            val amount = receiptSnap.getDouble(AMOUNT) ?: 0.0
-            val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
+                // ✅ All writes after
+                val amount = receiptSnap.getDouble(AMOUNT) ?: 0.0
+                val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
 
-            transaction.delete(receiptRef)
-            transaction.update(
-                sourceRef,
-                TOTAL_AMOUNT,
-                currentTotal - amount
-            )
-        }.await()
+                transaction.delete(receiptRef)
+                transaction.update(
+                    sourceRef,
+                    TOTAL_AMOUNT,
+                    currentTotal - amount
+                )
+            }.await()
+        }
     }
 }
