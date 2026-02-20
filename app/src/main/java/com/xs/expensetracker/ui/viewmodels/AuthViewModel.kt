@@ -1,15 +1,18 @@
 package com.xs.expensetracker.ui.viewmodels
 
+import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.repo.AuthRepository
 import com.xs.expensetracker.utils.AuthUiState
+import com.xs.expensetracker.utils.GoogleAuthManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class AuthViewModel(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    val googleAuthManager: GoogleAuthManager
 ) : ViewModel() {
 
     private val _uiState =
@@ -32,6 +35,20 @@ class AuthViewModel(
                             AuthUiState.Unauthenticated
                         }
                 }
+        }
+    }
+
+    fun signIn(activity: Activity){
+        viewModelScope.launch {
+            runCatching {
+                val result = googleAuthManager.signIn(activity)
+                result.onSuccess { text ->
+                    signInWithGoogle(text)
+                }
+                result.onFailure {
+                    _uiState.value = AuthUiState.Error(it.message ?: "Auth failed")
+                }
+            }
         }
     }
 
