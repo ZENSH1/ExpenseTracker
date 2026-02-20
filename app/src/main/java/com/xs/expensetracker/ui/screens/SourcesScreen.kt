@@ -105,61 +105,77 @@ fun SourcesScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(bgDark)) {
-        // Ambient glow
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(activeColor.copy(alpha = 0.07f), Color.Transparent),
-                    center = Offset(size.width * 0.5f, 0f),
-                    radius = size.width * 0.7f
-                ),
-                radius = size.width * 0.7f,
-                center = Offset(size.width * 0.5f, 0f)
-            )
-        }
-
-        Scaffold(
-            containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text("Sources", color = textPrimary, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = textPrimary)
-                        }
-                    },
-                    actions = {
-                        IconButton(
-                            onClick = { showAddModal = true },
-                            modifier = Modifier
-                                .padding(end = 8.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(activeColor.copy(alpha = 0.15f))
-                                .border(1.dp, activeColor.copy(alpha = 0.3f), RoundedCornerShape(10.dp))
-                        ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add", tint = activeColor)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+    with(sharedTransitionScope) {
+        Box(modifier = Modifier.fillMaxSize().background(bgDark)) {
+            // Ambient glow
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(activeColor.copy(alpha = 0.07f), Color.Transparent),
+                        center = Offset(size.width * 0.5f, 0f),
+                        radius = size.width * 0.7f
+                    ),
+                    radius = size.width * 0.7f,
+                    center = Offset(size.width * 0.5f, 0f)
                 )
             }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
 
-                with(sharedTransitionScope) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                "Sources",
+                                color = textPrimary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp
+                            )
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBack) {
+                                Icon(
+                                    Icons.Filled.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = textPrimary
+                                )
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = { showAddModal = true },
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(activeColor.copy(alpha = 0.15f))
+                                    .border(
+                                        1.dp,
+                                        activeColor.copy(alpha = 0.3f),
+                                        RoundedCornerShape(10.dp)
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Filled.Add,
+                                    contentDescription = "Add",
+                                    tint = activeColor
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                    )
+                }
+            ) { padding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+
 
                     // ── Summary Card ────────────────────────────────────
                     val total = txState.sources.sumOf { it.totalAmount }
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -182,7 +198,10 @@ fun SourcesScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 // 👇 Label flies in from HomeScreen's label
                                 Text(
-                                    text = "Total ${filterType?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "All"}",
+                                    text = "Total ${
+                                        filterType?.name?.lowercase()
+                                            ?.replaceFirstChar { it.uppercase() } ?: "All"
+                                    }",
                                     color = textSecondary,
                                     fontSize = 12.sp,
                                     modifier = Modifier.sharedElement(
@@ -228,74 +247,85 @@ fun SourcesScreen(
                         }
                     }
 
-                    // ... rest of SourcesScreen unchanged ...
-                }
-
-                // ── Type Filter ─────────────────────────────────────
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(bgCard)
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf(null, TransactionType.INCOME, TransactionType.EXPENSE).forEach { t ->
-                        val label = t?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "All"
-                        val tabColor = when (t) {
-                            TransactionType.INCOME -> incomeColor
-                            TransactionType.EXPENSE -> expenseColor
-                            null -> accentPurple
-                        }
-                        val isSelected = filterType == t
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) tabColor.copy(alpha = 0.15f) else Color.Transparent)
-                                .border(
-                                    width = if (isSelected) 1.dp else 0.dp,
-                                    color = if (isSelected) tabColor.copy(alpha = 0.5f) else Color.Transparent,
-                                    shape = RoundedCornerShape(8.dp)
+                    // ── Type Filter ─────────────────────────────────────
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(bgCard)
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(null, TransactionType.INCOME, TransactionType.EXPENSE).forEach { t ->
+                            val label =
+                                t?.name?.lowercase()?.replaceFirstChar { it.uppercase() } ?: "All"
+                            val tabColor = when (t) {
+                                TransactionType.INCOME -> incomeColor
+                                TransactionType.EXPENSE -> expenseColor
+                                null -> accentPurple
+                            }
+                            val isSelected = filterType == t
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) tabColor.copy(alpha = 0.15f) else Color.Transparent)
+                                    .border(
+                                        width = if (isSelected) 1.dp else 0.dp,
+                                        color = if (isSelected) tabColor.copy(alpha = 0.5f) else Color.Transparent,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable { filterType = t }
+                                    .padding(vertical = 9.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) tabColor else textSecondary,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                                 )
-                                .clickable { filterType = t }
-                                .padding(vertical = 9.dp),
+                            }
+                        }
+                    }
+
+                    // ── List ────────────────────────────────────────────
+                    if (txState.sources.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = label,
-                                color = if (isSelected) tabColor else textSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                            )
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text("💸", fontSize = 48.sp)
+                                Text(
+                                    "No sources yet",
+                                    color = textPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    "Tap + to add your first source",
+                                    color = textSecondary,
+                                    fontSize = 13.sp
+                                )
+                            }
                         }
-                    }
-                }
-
-                // ── List ────────────────────────────────────────────
-                if (txState.sources.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(bottom = 32.dp)
                         ) {
-                            Text("💸", fontSize = 48.sp)
-                            Text("No sources yet", color = textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                            Text("Tap + to add your first source", color = textSecondary, fontSize = 13.sp)
-                        }
-                    }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(bottom = 32.dp)
-                    ) {
-                        items(txState.sources, key = { it.id }) { source ->
-                            SourceCard(
-                                source = source,
-                                currency = currency,
-                                onEdit = { editingSource = source },
-                                onDelete = { deletingSource = source }
-                            )
+                            items(txState.sources, key = { it.id }) { source ->
+                                SourceCard(
+                                    source = source,
+                                    currency = currency,
+                                    onEdit = { editingSource = source },
+                                    onDelete = { deletingSource = source }
+                                )
+                            }
                         }
                     }
                 }
