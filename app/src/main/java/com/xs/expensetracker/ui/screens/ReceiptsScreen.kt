@@ -226,7 +226,13 @@ fun ReceiptsScreen(
 
                     // ── Type Filter ─────────────────────────────────────
                     Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                        modifier = Modifier.fillMaxWidth()
+                            .sharedBounds(
+                                sharedContentState = rememberSharedContentState(SharedKeys.TABS_LAYOUT),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                            )
+                            .clip(RoundedCornerShape(12.dp))
                             .background(bgCard).padding(4.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -262,7 +268,11 @@ fun ReceiptsScreen(
 
                     // ── Source Filter Chips ─────────────────────────────
                     if (txState.sources.isNotEmpty()) {
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LazyRow(modifier = Modifier.sharedBounds(
+                            sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                        ),horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             item {
                                 FilterChip(
                                     selected = filterSourceId == null,
@@ -282,7 +292,7 @@ fun ReceiptsScreen(
                                     )
                                 )
                             }
-                            items(txState.sources) { source ->
+                            items(txState.sources.filter { it.type == filterType || filterType == null }) { source ->
                                 val chipColor =
                                     if (source.type == TransactionType.INCOME) incomeColor else expenseColor
                                 FilterChip(

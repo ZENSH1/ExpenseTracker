@@ -251,6 +251,11 @@ fun SourcesScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .sharedBounds(
+                                sharedContentState = rememberSharedContentState(SharedKeys.TABS_LAYOUT),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                            )
                             .clip(RoundedCornerShape(12.dp))
                             .background(bgCard)
                             .padding(4.dp),

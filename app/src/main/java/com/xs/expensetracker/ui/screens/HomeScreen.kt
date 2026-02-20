@@ -99,102 +99,108 @@ fun HomeScreen(
         animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
         label = "activeColor"
     )
+    with(sharedTransitionScope) {
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgDark)
-    ) {
-
-        // Ambient glow background
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(glowColor,
-                        Color.Transparent
-                    ),
-                    center = Offset(size.width * 0.5f, size.height * 0.15f),
-                    radius = size.width * 0.8f
-                ),
-                radius = size.width * 0.8f,
-                center = Offset(size.width * 0.5f, size.height * 0.15f)
-            )
-        }
-
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 56.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .background(bgDark)
         ) {
 
-            // ── Top Bar ──────────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.clickable(true){
-                    onProfileClicked()
-                }) {
-                    Text(
-                        text = "Hello,",
-                        color = textSecondary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                    Text(
-                        text = user.displayName ?: "there",
-                        color = textPrimary,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // User avatar
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(accentPurple.copy(alpha = 0.2f))
-                            .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape).clickable(true){
-                                onProfileClicked()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = user?.displayName?.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                            color = accentPurple,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-
-                    // Logout
-                    IconButton(
-                        onClick = {
-                            authViewModel.signOut()
-                            onLogout()
-                        },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.05f))
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Logout,
-                            contentDescription = "Logout",
-                            tint = textSecondary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
+            // Ambient glow background
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            glowColor,
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.5f, size.height * 0.15f),
+                        radius = size.width * 0.8f
+                    ),
+                    radius = size.width * 0.8f,
+                    center = Offset(size.width * 0.5f, size.height * 0.15f)
+                )
             }
 
-            with(sharedTransitionScope) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 56.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+
+                // ── Top Bar ──────────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.clickable(true) {
+                        onProfileClicked()
+                    }) {
+                        Text(
+                            text = "Hello,",
+                            color = textSecondary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                        Text(
+                            text = user.displayName ?: "there",
+                            color = textPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // User avatar
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(accentPurple.copy(alpha = 0.2f))
+                                .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape)
+                                .clickable(true) {
+                                    onProfileClicked()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = user?.displayName?.firstOrNull()?.uppercaseChar()?.toString()
+                                    ?: "?",
+                                color = accentPurple,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+
+                        // Logout
+                        IconButton(
+                            onClick = {
+                                authViewModel.signOut()
+                                onLogout()
+                            },
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.05f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Logout,
+                                contentDescription = "Logout",
+                                tint = textSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+
 
                 // ── Grand Total Card ─────────────────────────────────────
                 Box(
@@ -277,143 +283,177 @@ fun HomeScreen(
                         )
                     }
                 }
-            }
-            // ── Type Toggle ──────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(bgCard)
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                TransactionType.entries.forEach { type ->
-                    val isSelected = selectedType == type
-                    val tabColor by animateColorAsState(
-                        targetValue = if (type == TransactionType.INCOME)
-                            Color(0xFF00C9A7).copy(alpha = 1f)
-                        else
-                            Color(0xFFFF6B6B).copy(alpha = 1f),
-                        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
-                        label = "tabColor"
-                    )
 
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(
-                                if (isSelected) tabColor.copy(alpha = 0.15f)
-                                else Color.Transparent
-                            )
-                            .border(
-                                width = if (isSelected) 1.dp else 0.dp,
-                                color = if (isSelected) tabColor.copy(alpha = 0.5f) else Color.Transparent,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable { selectedType = type }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                // ── Type Toggle ──────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .sharedBounds(
+                        sharedContentState = rememberSharedContentState(SharedKeys.TABS_LAYOUT),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                    )
+                        .clip (RoundedCornerShape(14.dp))
+                        .background(bgCard)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    TransactionType.entries.forEach { type ->
+                        val isSelected = selectedType == type
+                        val tabColor by animateColorAsState(
+                            targetValue = if (type == TransactionType.INCOME)
+                                Color(0xFF00C9A7).copy(alpha = 1f)
+                            else
+                                Color(0xFFFF6B6B).copy(alpha = 1f),
+                            animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+                            label = "tabColor"
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isSelected) tabColor.copy(alpha = 0.15f)
+                                    else Color.Transparent
+                                )
+                                .border(
+                                    width = if (isSelected) 1.dp else 0.dp,
+                                    color = if (isSelected) tabColor.copy(alpha = 0.5f) else Color.Transparent,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .clickable { selectedType = type }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = if (type == TransactionType.INCOME)
-                                    Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
-                                contentDescription = null,
-                                tint = if (isSelected) tabColor else textSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = type.name.lowercase().replaceFirstChar { it.uppercase() },
-                                color = if (isSelected) tabColor else textSecondary,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (type == TransactionType.INCOME)
+                                        Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                                    contentDescription = null,
+                                    tint = if (isSelected) tabColor else textSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = type.name.lowercase()
+                                        .replaceFirstChar { it.uppercase() },
+                                    color = if (isSelected) tabColor else textSecondary,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // ── Quick Action Buttons ─────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickActionButton(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.AccountBalanceWallet,
-                    label = "Add Source",
-                    color = accentPurple,
-                    onClick = onAddSource
-                )
-                QuickActionButton(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.Receipt,
-                    label = "Add Receipt",
-                    color = activeColor,
-                    onClick = onAddReceipt
-                )
-            }
-
-            // ── Navigation Cards ─────────────────────────────────────
-            Text(
-                text = "BROWSE",
-                color = textSecondary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 2.sp
-            )
-
-            NavCard(
-                icon = Icons.Outlined.AccountBalanceWallet,
-                title = "Transaction Sources",
-                subtitle = "${txState.sources.size} ${selectedType.name.lowercase()} sources",
-                accentColor = accentPurple,
-                bgColor = bgCard,
-                textPrimary = textPrimary,
-                textSecondary = textSecondary,
-                onClick = { onNavigateToSources(selectedType) }
-            )
-
-            NavCard(
-                icon = Icons.Outlined.ReceiptLong,
-                title = "Transaction Receipts",
-                subtitle = "${txState.receipts.size} receipts",
-                accentColor = activeColor,
-                bgColor = bgCard,
-                textPrimary = textPrimary,
-                textSecondary = textSecondary,
-                onClick = { onNavigateToReceipts(selectedType) }
-            )
-
-            // ── Error snackbar area ──────────────────────────────────
-            txState.error?.let { error ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(expenseColor.copy(alpha = 0.1f))
-                        .border(1.dp, expenseColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                        .padding(16.dp)
+                // ── Quick Action Buttons ─────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth().sharedBounds(
+                        sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
+                        animatedVisibilityScope = animatedVisibilityScope,
+                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    QuickActionButton(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Filled.AccountBalanceWallet,
+                        label = "Add Source",
+                        color = accentPurple,
+                        onClick = onAddSource
+                    )
+                    QuickActionButton(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Filled.Receipt,
+                        label = "Add Receipt",
+                        color = activeColor,
+                        onClick = onAddReceipt
+                    )
+                }
+
+                // ── Navigation Cards ─────────────────────────────────────
+                Text(
+                    text = "BROWSE",
+                    color = textSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 2.sp
+                )
+
+                NavCard(
+                    icon = Icons.Outlined.AccountBalanceWallet,
+                    title = "Transaction Sources",
+                    subtitle = "${txState.sources.size} ${selectedType.name.lowercase()} sources",
+                    accentColor = accentPurple,
+                    bgColor = bgCard,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary,
+                    onClick = { onNavigateToSources(selectedType) }
+                )
+
+                NavCard(
+                    icon = Icons.Outlined.ReceiptLong,
+                    title = "Transaction Receipts",
+                    subtitle = "${txState.receipts.size} receipts",
+                    accentColor = activeColor,
+                    bgColor = bgCard,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary,
+                    onClick = { onNavigateToReceipts(selectedType) }
+                )
+
+                // ── Error snackbar area ──────────────────────────────────
+                txState.error?.let { error ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(expenseColor.copy(alpha = 0.1f))
+                            .border(
+                                1.dp,
+                                expenseColor.copy(alpha = 0.3f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .padding(16.dp)
                     ) {
-                        Icon(Icons.Filled.ErrorOutline, contentDescription = null, tint = expenseColor, modifier = Modifier.size(18.dp))
-                        Text(text = error, color = expenseColor, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        IconButton(onClick = { transactionsViewModel.clearError() }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = expenseColor, modifier = Modifier.size(16.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.ErrorOutline,
+                                contentDescription = null,
+                                tint = expenseColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = error,
+                                color = expenseColor,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            IconButton(
+                                onClick = { transactionsViewModel.clearError() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Filled.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = expenseColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
-
     if (showAddSourceModal) {
         AddSourceModal(
             trackerId = trackerId,
