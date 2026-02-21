@@ -1,6 +1,5 @@
 package com.xs.expensetracker.ui.screens
 
-import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.SharedTransitionScope
@@ -60,10 +59,10 @@ fun ReceiptsScreen(
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
     onBack: () -> Unit,
+    trackerId: String,
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
-    val trackerId = (authState as? AuthUiState.Authenticated)?.user?.uid ?: return
     fun getSourceById(sourceId:String): TransactionSource?{
        return txState.sources.findLast{ it.id == sourceId }
     }
