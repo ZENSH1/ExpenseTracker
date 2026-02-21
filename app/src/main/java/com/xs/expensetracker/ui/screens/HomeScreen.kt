@@ -6,6 +6,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.automirrored.outlined.Logout
@@ -22,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.data.enums.TransactionType
+import com.xs.expensetracker.data.models.Tracker
 import com.xs.expensetracker.ui.components.modals.AddReceiptModal
 import com.xs.expensetracker.ui.components.modals.AddSourceModal
 import com.xs.expensetracker.ui.components.reusables.NavCard
@@ -40,35 +42,33 @@ import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    // -- new params --
+    tracker: Tracker,                               // ← selected tracker passed from TrackerSelectionScreen
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    // -- existing params --
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     onLogout: () -> Unit,
     onNavigateToSources: (TransactionType) -> Unit,
     onNavigateToReceipts: (TransactionType) -> Unit,
-    onProfileClicked: () -> Unit
-
+    onProfileClicked: () -> Unit,
+    onBack: () -> Unit
 ) {
     val authState by authViewModel.uiState.collectAsState()
-    val txState by transactionsViewModel.uiState.collectAsState()
-    var showAddSourceModal by remember { mutableStateOf(false) }
+    val txState   by transactionsViewModel.uiState.collectAsState()
+
+    val user = (authState as? AuthUiState.Authenticated)?.user ?: return
+
+    var showAddSourceModal  by remember { mutableStateOf(false) }
     var showAddReceiptModal by remember { mutableStateOf(false) }
+    var selectedType        by remember { mutableStateOf(TransactionType.INCOME) }
 
-    val user = (authState as? AuthUiState.Authenticated)?.user
-    val trackerId = user?.uid ?: return  // early return if not authenticated
-    val onAddSource = { showAddSourceModal = true }
-    val onAddReceipt = { showAddReceiptModal = true }
-    var selectedType by remember { mutableStateOf(TransactionType.INCOME) }
+    val trackerId = tracker.id
 
-
-    //Colors
     val glowColor by animateColorAsState(
         targetValue = if (selectedType == TransactionType.INCOME)
             Color(0xFF00C9A7).copy(alpha = 0.12f)
@@ -78,44 +78,32 @@ fun HomeScreen(
         label = "glowColor"
     )
 
+    val activeColor by animateColorAsState(
+        targetValue = if (selectedType == TransactionType.INCOME)
+            Color(0xFF00C9A7)
+        else
+            Color(0xFFFF6B6B),
+        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+        label = "activeColor"
+    )
 
-    // Observe sources & receipts whenever type or trackerId changes
     LaunchedEffect(trackerId, selectedType) {
         transactionsViewModel.observeSources(trackerId, selectedType)
         transactionsViewModel.observeReceipts(trackerId, "")
     }
 
-    val currencyFormatter = remember {
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
-    }
+    val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.getDefault()) }
 
-    // Compute grand total from sources
-    val grandTotal = txState.sources.sumOf { it.totalAmount }
-
-    val activeColor by animateColorAsState(
-        targetValue = if (selectedType == TransactionType.INCOME)
-            Color(0xFF00C9A7).copy(alpha = 1F)
-        else
-            Color(0xFFFF6B6B).copy(alpha = 1F),
-        animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
-        label = "activeColor"
-    )
     with(sharedTransitionScope) {
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(bgDark)
         ) {
-
-            // Ambient glow background
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawCircle(
                     brush = Brush.radialGradient(
-                        colors = listOf(
-                            glowColor,
-                            Color.Transparent
-                        ),
+                        colors = listOf(glowColor, Color.Transparent),
                         center = Offset(size.width * 0.5f, size.height * 0.15f),
                         radius = size.width * 0.8f
                     ),
@@ -133,42 +121,55 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
 
-                // ── Top Bar ──────────────────────────────────────────────
+                // ── Top Bar ───────────────────────────────────────────────
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(Modifier.clickable(true) {
-                        onProfileClicked()
-                    }) {
-                        Text(
-                            text = "Hello,",
-                            color = textSecondary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Normal
-                        )
-                        Text(
-                            modifier = Modifier.sharedBounds(
-                                sharedContentState = rememberSharedContentState(SharedKeys.USER_PROFILE_NAME),
-                                animatedVisibilityScope = animatedVisibilityScope,
-                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                            ),
-                            text = user.displayName ?: "there",
-                            color = textPrimary,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = textSecondary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+
+                        Column(Modifier.clickable { onProfileClicked() }) {
+                            Text(
+                                text = tracker.name,
+                                color = textSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                            Text(
+                                modifier = Modifier.sharedBounds(
+                                    sharedContentState = rememberSharedContentState(SharedKeys.USER_PROFILE_NAME),
+                                    animatedVisibilityScope = animatedVisibilityScope,
+                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                                ),
+                                text = user.displayName ?: "there",
+                                color = textPrimary,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // User avatar
                         Box(
                             modifier = Modifier
-
                                 .size(40.dp)
                                 .sharedBounds(
                                     sharedContentState = rememberSharedContentState(SharedKeys.USER_PROFILE_IMAGE),
@@ -177,135 +178,42 @@ fun HomeScreen(
                                 )
                                 .clip(CircleShape)
                                 .background(accentPurple.copy(alpha = 0.2f))
-                                .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape)
-                                .clickable(true) {
-                                    onProfileClicked()
-                                },
+                                .clickable { onProfileClicked() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = user.displayName?.firstOrNull()?.uppercaseChar()?.toString()
-                                    ?: "?",
+                                text = user.displayName?.firstOrNull()?.uppercase() ?: "?",
                                 color = accentPurple,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
 
-                        // Logout
-                        IconButton(
-                            onClick = {
-                                authViewModel.signOut()
-                                onLogout()
-                            },
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.05f))
-                        ) {
+                        IconButton(onClick = {
+                            authViewModel.signOut()
+                            onLogout()
+                        }) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.Logout,
-                                contentDescription = "Logout",
+                                Icons.AutoMirrored.Outlined.Logout,
+                                contentDescription = "Sign Out",
                                 tint = textSecondary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
 
+                // ── Grand Total Card ──────────────────────────────────────
+                GrandTotalCard(
+                    grandTotal = tracker.grandTotal.toDouble(),
+                    currencyFormatter = currencyFormatter
+                )
 
-                // ── Grand Total Card ─────────────────────────────────────
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // 👇 The entire card morphs into the Summary Card
-                        .sharedBounds(
-                            sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
-                            animatedVisibilityScope = animatedVisibilityScope,
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                        )
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(
-                            Brush.linearGradient(colors = listOf(bgCard, Color(0xFF1E1E3A)))
-                        )
-                        .border(
-                            width = 1.dp,
-                            brush = Brush.linearGradient(
-                                colors = listOf(
-                                    activeColor.copy(alpha = 0.4f),
-                                    accentPurple.copy(alpha = 0.2f)
-                                )
-                            ),
-                            shape = RoundedCornerShape(24.dp)
-                        )
-                        .padding(24.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(activeColor)
-                            )
-                            // 👇 The label text flies across
-                            Text(
-                                text = "Grand Total • ${
-                                    selectedType.name.lowercase()
-                                        .replaceFirstChar { it.uppercase() }
-                                }",
-                                color = activeColor,
-                                fontSize = 13.sp,
-                                modifier = Modifier.sharedElement(
-                                    sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_LABEL),
-                                    animatedVisibilityScope = animatedVisibilityScope
-                                )
-                            )
-                        }
-
-                        AnimatedContent(
-                            targetState = grandTotal,
-                            transitionSpec = {
-                                slideInVertically { it } + fadeIn() togetherWith
-                                        slideOutVertically { -it } + fadeOut()
-                            },
-                            label = "total_anim"
-                        ) { total ->
-                            // 👇 The big amount number flies across
-                            Text(
-                                text = currencyFormatter.format(total),
-                                color = activeColor,
-                                fontSize = 38.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = (-1).sp,
-                                modifier = Modifier.sharedElement(
-                                    sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_AMOUNT),
-                                    animatedVisibilityScope = animatedVisibilityScope,
-                                )
-                            )
-                        }
-
-                        Text(
-                            text = "${txState.sources.size} source${if (txState.sources.size != 1) "s" else ""}",
-                            color = activeColor,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-
-                // ── Type Toggle ──────────────────────────────────────────
+                // ── Income / Expense Tabs ─────────────────────────────────
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .sharedBounds(
-                        sharedContentState = rememberSharedContentState(SharedKeys.TABS_LAYOUT),
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                    )
-                        .clip (RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(bgCard)
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -313,11 +221,8 @@ fun HomeScreen(
                     TransactionType.entries.forEach { type ->
                         val isSelected = selectedType == type
                         val tabColor by animateColorAsState(
-                            targetValue = if (type == TransactionType.INCOME)
-                                Color(0xFF00C9A7).copy(alpha = 1f)
-                            else
-                                Color(0xFFFF6B6B).copy(alpha = 1f),
-                            animationSpec = tween(durationMillis = 600, easing = EaseInOutCubic),
+                            targetValue = if (type == TransactionType.INCOME) incomeColor else expenseColor,
+                            animationSpec = tween(600, easing = EaseInOutCubic),
                             label = "tabColor"
                         )
 
@@ -326,8 +231,7 @@ fun HomeScreen(
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
-                                    if (isSelected) tabColor.copy(alpha = 0.15f)
-                                    else Color.Transparent
+                                    if (isSelected) tabColor.copy(alpha = 0.15f) else Color.Transparent
                                 )
                                 .border(
                                     width = if (isSelected) 1.dp else 0.dp,
@@ -344,14 +248,15 @@ fun HomeScreen(
                             ) {
                                 Icon(
                                     imageVector = if (type == TransactionType.INCOME)
-                                        Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
+                                        Icons.AutoMirrored.Filled.TrendingUp
+                                    else
+                                        Icons.AutoMirrored.Filled.TrendingDown,
                                     contentDescription = null,
                                     tint = if (isSelected) tabColor else textSecondary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = type.name.lowercase()
-                                        .replaceFirstChar { it.uppercase() },
+                                    text = type.name.lowercase().replaceFirstChar { it.uppercase() },
                                     color = if (isSelected) tabColor else textSecondary,
                                     fontSize = 14.sp,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
@@ -361,13 +266,15 @@ fun HomeScreen(
                     }
                 }
 
-                // ── Quick Action Buttons ─────────────────────────────────
+                // ── Quick Actions ─────────────────────────────────────────
                 Row(
-                    modifier = Modifier.fillMaxWidth().sharedBounds(
-                        sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
-                        animatedVisibilityScope = animatedVisibilityScope,
-                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
-                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(SharedKeys.ROW_ITEMS),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                        ),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     QuickActionButton(
@@ -375,18 +282,18 @@ fun HomeScreen(
                         icon = Icons.Filled.AccountBalanceWallet,
                         label = "Add Source",
                         color = accentPurple,
-                        onClick = onAddSource
+                        onClick = { showAddSourceModal = true }
                     )
                     QuickActionButton(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Filled.Receipt,
                         label = "Add Receipt",
                         color = activeColor,
-                        onClick = onAddReceipt
+                        onClick = { showAddReceiptModal = true }
                     )
                 }
 
-                // ── Navigation Cards ─────────────────────────────────────
+                // ── Nav Cards ─────────────────────────────────────────────
                 Text(
                     text = "BROWSE",
                     color = textSecondary,
@@ -417,30 +324,21 @@ fun HomeScreen(
                     onClick = { onNavigateToReceipts(selectedType) }
                 )
 
-                // ── Error snackbar area ──────────────────────────────────
+                // ── Error ─────────────────────────────────────────────────
                 txState.error?.let { error ->
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(expenseColor.copy(alpha = 0.1f))
-                            .border(
-                                1.dp,
-                                expenseColor.copy(alpha = 0.3f),
-                                RoundedCornerShape(12.dp)
-                            )
+                            .border(1.dp, expenseColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                             .padding(16.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                Icons.Filled.ErrorOutline,
-                                contentDescription = null,
-                                tint = expenseColor,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            Icon(Icons.Filled.ErrorOutline, null, tint = expenseColor, modifier = Modifier.size(18.dp))
                             Text(
                                 text = error,
                                 color = expenseColor,
@@ -453,12 +351,7 @@ fun HomeScreen(
                                 onClick = { transactionsViewModel.clearError() },
                                 modifier = Modifier.size(24.dp)
                             ) {
-                                Icon(
-                                    Icons.Filled.Close,
-                                    contentDescription = "Dismiss",
-                                    tint = expenseColor,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                Icon(Icons.Filled.Close, "Dismiss", tint = expenseColor, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -466,6 +359,7 @@ fun HomeScreen(
             }
         }
     }
+
     if (showAddSourceModal) {
         AddSourceModal(
             trackerId = trackerId,
@@ -487,7 +381,61 @@ fun HomeScreen(
             }
         )
     }
-
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Grand Total Card
+// ─────────────────────────────────────────────────────────────────────────────
 
+@Composable
+private fun GrandTotalCard(
+    grandTotal: Double,
+    currencyFormatter: NumberFormat
+) {
+    val isPositive  = grandTotal >= 0.0
+    val totalColor  by animateColorAsState(
+        targetValue = if (isPositive) incomeColor else expenseColor,
+        animationSpec = tween(600, easing = EaseInOutCubic),
+        label = "totalColor"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        totalColor.copy(alpha = 0.12f),
+                        totalColor.copy(alpha = 0.04f)
+                    )
+                )
+            )
+            .border(1.dp, totalColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+            .padding(20.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "NET BALANCE",
+                color = textSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.5.sp
+            )
+            Text(
+                text = buildString {
+                    if (!isPositive) append("−")
+                    append(currencyFormatter.format(abs(grandTotal)))
+                },
+                color = totalColor,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = if (isPositive) "Income exceeds expenses" else "Expenses exceed income",
+                color = textSecondary,
+                fontSize = 12.sp
+            )
+        }
+    }
+}

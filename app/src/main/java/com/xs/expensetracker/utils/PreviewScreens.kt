@@ -5,7 +5,7 @@ import com.xs.expensetracker.ui.theme.ExpenseTrackerTheme
 
 @Composable
 fun PreviewScreens(screen: @Composable () -> Unit) {
-    ExpenseTrackerTheme {
+    ExpenseTrackerTheme(darkTheme = true) {
         screen()
     }
 }

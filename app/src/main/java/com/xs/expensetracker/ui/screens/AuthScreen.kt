@@ -286,11 +286,3 @@ fun AuthScreen(
     }
 }
 
-
-@Preview
-@Composable
-fun PreviewGoogle(){
-    PreviewScreens {
-        GoogleGLogo()
-    }
-}

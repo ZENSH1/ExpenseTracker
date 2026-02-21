@@ -44,11 +44,11 @@ fun SourcesScreen(
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    trackerId: String
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
-    val trackerId = (authState as? AuthUiState.Authenticated)?.user?.uid ?: return
 
     var filterType by remember { mutableStateOf<TransactionType?>(type) }
     var showAddModal by remember { mutableStateOf(false) }

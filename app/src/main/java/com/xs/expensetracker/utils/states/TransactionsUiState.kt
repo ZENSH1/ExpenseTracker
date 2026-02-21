@@ -9,5 +9,6 @@ data class TransactionsUiState(
     val sources: List<TransactionSource> = emptyList(),
     val receipts: List<TransactionReceipt> = emptyList(),
     val isLoading: Boolean = false,
+    val loadingMessage: String? = null,     // granular loading text from use cases
     val error: String? = null
 )
