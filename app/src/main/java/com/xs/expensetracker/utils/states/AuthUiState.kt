@@ -4,7 +4,7 @@ import com.google.firebase.auth.FirebaseUser
 
 sealed interface AuthUiState {
 
-    object Loading : AuthUiState
+    data class Loading(val message: String) : AuthUiState
 
     object Unauthenticated : AuthUiState
 

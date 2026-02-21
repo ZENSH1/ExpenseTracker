@@ -8,26 +8,13 @@ import org.koin.dsl.module
 
 val viewModelModule = module {
 
-    viewModel {
+    viewModel<AuthViewModel> {
         AuthViewModel(
-            authRepository = get(),
-            googleAuthManager = get()
+         authUseCase = get()
         )
     }
 
-    viewModel {
+    viewModel<TransactionsViewModel> {
         TransactionsViewModel(get())
     }
-
-  /*  viewModel {
-        TrackerViewModel(get())
-    }
-
-    viewModel {
-        SourceViewModel(get())
-    }
-
-    viewModel {
-        ReceiptViewModel(get())
-    }*/
 }
