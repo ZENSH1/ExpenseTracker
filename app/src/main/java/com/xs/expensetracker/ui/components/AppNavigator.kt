@@ -83,6 +83,8 @@ fun AppNavigator(
 
                 // ── Tracker Selection ─────────────────────────────────────
                 TrackerSelectionRoute -> TrackerSelectionScreen(
+                    sharedTransitionScope = this@SharedTransitionLayout,
+                    animatedVisibilityScope = this,
                     onTrackerSelected = { tracker ->
                         backStack.add(HomeRoute(tracker))
                     },

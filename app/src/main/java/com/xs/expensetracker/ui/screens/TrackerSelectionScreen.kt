@@ -26,6 +26,7 @@ import com.xs.expensetracker.data.models.Tracker
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
+import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
@@ -35,6 +36,8 @@ import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackerSelectionScreen(
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     onTrackerSelected: (Tracker) -> Unit,
@@ -57,185 +60,191 @@ fun TrackerSelectionScreen(
 
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.getDefault()) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgDark)
-    ) {
-        // Ambient glow
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(accentPurple.copy(alpha = 0.08f), Color.Transparent),
-                    center = Offset(size.width * 0.5f, size.height * 0.1f),
-                    radius = size.width * 0.9f
-                ),
-                radius = size.width * 0.9f,
-                center = Offset(size.width * 0.5f, size.height * 0.1f)
-            )
-        }
-
-        Column(
+    with(sharedTransitionScope) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp)
-                .padding(top = 56.dp, bottom = 32.dp)
+                .background(bgDark)
         ) {
-            // ── Top Bar ─────────────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Welcome back,",
-                        color = textSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal
-                    )
-                    Text(
-                        text = user.displayName ?: "there",
-                        color = textPrimary,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            // Ambient glow
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(accentPurple.copy(alpha = 0.08f), Color.Transparent),
+                        center = Offset(size.width * 0.5f, size.height * 0.1f),
+                        radius = size.width * 0.9f
+                    ),
+                    radius = size.width * 0.9f,
+                    center = Offset(size.width * 0.5f, size.height * 0.1f)
+                )
+            }
 
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 56.dp, bottom = 32.dp)
+            ) {
+                // ── Top Bar ─────────────────────────────────────────────────
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Loading indicator in top bar
-                    AnimatedVisibility(
-                        visible = txState.isLoading,
-                        enter = fadeIn() + scaleIn(),
-                        exit  = fadeOut() + scaleOut()
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
-                            color = accentPurple
+                    Column {
+                        Text(
+                            text = "Welcome back,",
+                            color = textSecondary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                        Text(
+                            text = user.displayName ?: "there",
+                            color = textPrimary,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
 
-                    IconButton(onClick = {
-                        authViewModel.signOut()
-                        onLogout()
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Outlined.Logout,
-                            contentDescription = "Sign Out",
-                            tint = textSecondary,
-                            modifier = Modifier.size(20.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // Loading indicator in top bar
+                        AnimatedVisibility(
+                            visible = txState.isLoading,
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut()
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = accentPurple
+                            )
+                        }
+
+                        IconButton(onClick = {
+                            authViewModel.signOut()
+                            onLogout()
+                        }) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.Logout,
+                                contentDescription = "Sign Out",
+                                tint = textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Loading message
+                AnimatedVisibility(visible = txState.loadingMessage != null) {
+                    txState.loadingMessage?.let { msg ->
+                        Text(
+                            text = msg,
+                            color = accentPurple,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(bottom = 4.dp)
                         )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Loading message
-            AnimatedVisibility(visible = txState.loadingMessage != null) {
-                txState.loadingMessage?.let { msg ->
+                // ── Section Header ───────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = msg,
-                        color = accentPurple,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        text = "YOUR TRACKERS",
+                        color = textSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 2.sp
+                    )
+                    Text(
+                        text = "${txState.trackers.size} total",
+                        color = textSecondary.copy(alpha = 0.6f),
+                        fontSize = 11.sp
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Section Header ───────────────────────────────────────────
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "YOUR TRACKERS",
-                    color = textSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    text = "${txState.trackers.size} total",
-                    color = textSecondary.copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Tracker List ─────────────────────────────────────────────
-            if (txState.trackers.isEmpty() && !txState.isLoading) {
-                EmptyTrackersState(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    onCreateClick = { showCreateDialog = true }
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
-                ) {
-                    items(
-                        items = txState.trackers,
-                        key = { it.id }
-                    ) { tracker ->
-                        TrackerCard(
-                            tracker = tracker,
-                            isOwner = tracker.ownerId == user.uid,
-                            currencyFormatter = currencyFormatter,
-                            onClick = { onTrackerSelected(tracker) },
-                            onEdit   = { trackerToEdit = tracker },
-                            onShare  = { trackerToShare = tracker },
-                            onDelete = { trackerToDelete = tracker }
-                        )
+                // ── Tracker List ─────────────────────────────────────────────
+                if (txState.trackers.isEmpty() && !txState.isLoading) {
+                    EmptyTrackersState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        onCreateClick = { showCreateDialog = true }
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(
+                            items = txState.trackers,
+                            key = { it.id }
+                        ) { tracker ->
+                            TrackerCard(
+                                modifier = Modifier.fillMaxWidth()
+                                    .sharedBounds(
+                                        sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${tracker.id}"),
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                    ),
+                                tracker = tracker,
+                                isOwner = tracker.ownerId == user.uid,
+                                currencyFormatter = currencyFormatter,
+                                onClick = { onTrackerSelected(tracker) },
+                                onEdit = { trackerToEdit = tracker },
+                                onShare = { trackerToShare = tracker },
+                                onDelete = { trackerToDelete = tracker }
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        // ── FAB ─────────────────────────────────────────────────────────
-        FloatingActionButton(
-            onClick = { showCreateDialog = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp),
-            containerColor = accentPurple,
-            contentColor = Color.White,
-            shape = CircleShape,
-            elevation = FloatingActionButtonDefaults.elevation(8.dp)
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = "Create Tracker")
-        }
+            // ── FAB ─────────────────────────────────────────────────────────
+            FloatingActionButton(
+                onClick = { showCreateDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(24.dp),
+                containerColor = accentPurple,
+                contentColor = Color.White,
+                shape = CircleShape,
+                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Create Tracker")
+            }
 
-        // ── Error Banner ─────────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = txState.error != null,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 90.dp, start = 20.dp, end = 20.dp),
-            enter = slideInVertically { it } + fadeIn(),
-            exit  = slideOutVertically { it } + fadeOut()
-        ) {
-            txState.error?.let { error ->
-                ErrorBanner(
-                    message = error,
-                    onDismiss = { transactionsViewModel.clearError() }
-                )
+            // ── Error Banner ─────────────────────────────────────────────────
+            AnimatedVisibility(
+                visible = txState.error != null,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp, start = 20.dp, end = 20.dp),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                txState.error?.let { error ->
+                    ErrorBanner(
+                        message = error,
+                        onDismiss = { transactionsViewModel.clearError() }
+                    )
+                }
             }
         }
     }
-
     // ── Dialogs ──────────────────────────────────────────────────────────
 
     if (showCreateDialog) {
@@ -292,6 +301,7 @@ fun TrackerSelectionScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TrackerCard(
+    modifier: Modifier = Modifier,
     tracker: Tracker,
     isOwner: Boolean,
     currencyFormatter: NumberFormat,
@@ -310,8 +320,7 @@ private fun TrackerCard(
     )
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = bgCard),
