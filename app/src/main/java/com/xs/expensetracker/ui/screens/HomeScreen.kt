@@ -184,7 +184,7 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = user?.displayName?.firstOrNull()?.uppercaseChar()?.toString()
+                                text = user.displayName?.firstOrNull()?.uppercaseChar()?.toString()
                                     ?: "?",
                                 color = accentPurple,
                                 fontWeight = FontWeight.Bold,
