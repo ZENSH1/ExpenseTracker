@@ -16,14 +16,14 @@ val useCasesModule = module {
     }
 
     single<TrackerUseCase> {
-        TrackerUseCase(repository = get())
+        TrackerUseCase(repository = get(), logger = get())
     }
 
     single<SourceUseCase> {
-        SourceUseCase(repository = get())
+        SourceUseCase(repository = get(), logger = get())
     }
 
     single<ReceiptUseCase> {
-        ReceiptUseCase(repository = get())
+        ReceiptUseCase(repository = get(), logger = get())
     }
 }

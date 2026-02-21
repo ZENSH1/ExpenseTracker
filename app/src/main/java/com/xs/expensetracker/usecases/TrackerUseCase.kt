@@ -2,84 +2,113 @@ package com.xs.expensetracker.usecases
 
 import com.xs.expensetracker.data.models.Tracker
 import com.xs.expensetracker.repo.ExpenseTrackerRepository
+import com.xs.expensetracker.utils.AppLogger
 import com.xs.expensetracker.utils.events.TrackerUiEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
 class TrackerUseCase(
-    private val repository: ExpenseTrackerRepository
+    private val repository: ExpenseTrackerRepository,
+    private val logger: AppLogger
 ) {
 
-    /**
-     * Real-time tracker list. Emits on every Firestore change.
-     */
     fun observeTrackers(userId: String): Flow<List<Tracker>> =
         repository.observeTrackers(userId)
 
-    /**
-     * Create a tracker. Emits Loading → Success | Error.
-     */
     fun createTracker(name: String, ownerId: String): Flow<TrackerUiEvent> = flow {
         val trimmed = name.trim()
         if (trimmed.isBlank()) {
-            emit(TrackerUiEvent.Error("Tracker name cannot be empty"))
+            val msg = "Tracker name cannot be empty"
+            logger.error(TAG, "createTracker", msg)
+            emit(TrackerUiEvent.Error(msg))
             return@flow
         }
+        logger.debug(TAG, "createTracker → name=$trimmed ownerId=$ownerId")
         emit(TrackerUiEvent.Loading("Creating tracker..."))
         repository.createTracker(trimmed, ownerId).fold(
-            onSuccess = { emit(TrackerUiEvent.Success) },
-            onFailure = { emit(TrackerUiEvent.Error(it.message ?: "Failed to create tracker")) }
+            onSuccess = {
+                logger.event("tracker_created", mapOf("owner_id" to ownerId))
+                emit(TrackerUiEvent.Success)
+            },
+            onFailure = {
+                logger.error(TAG, "createTracker", it, mapOf("owner_id" to ownerId))
+                emit(TrackerUiEvent.Error(it.message ?: "Failed to create tracker"))
+            }
         )
     }
 
-    /**
-     * Rename a tracker. Emits Loading → Success | Error.
-     */
     fun updateTrackerName(trackerId: String, newName: String): Flow<TrackerUiEvent> = flow {
         val trimmed = newName.trim()
         if (trimmed.isBlank()) {
-            emit(TrackerUiEvent.Error("Tracker name cannot be empty"))
+            val msg = "Tracker name cannot be empty"
+            logger.error(TAG, "updateTrackerName", msg, mapOf("tracker_id" to trackerId))
+            emit(TrackerUiEvent.Error(msg))
             return@flow
         }
+        logger.debug(TAG, "updateTrackerName → trackerId=$trackerId newName=$trimmed")
         emit(TrackerUiEvent.Loading("Updating tracker..."))
         repository.updateTrackerName(trackerId, trimmed).fold(
-            onSuccess = { emit(TrackerUiEvent.Success) },
-            onFailure = { emit(TrackerUiEvent.Error(it.message ?: "Failed to update tracker")) }
+            onSuccess = {
+                logger.event("tracker_renamed", mapOf("tracker_id" to trackerId))
+                emit(TrackerUiEvent.Success)
+            },
+            onFailure = {
+                logger.error(TAG, "updateTrackerName", it, mapOf("tracker_id" to trackerId))
+                emit(TrackerUiEvent.Error(it.message ?: "Failed to update tracker"))
+            }
         )
     }
 
-    /**
-     * Share a tracker with another user. Emits Loading → Success | Error.
-     */
     fun shareTracker(trackerId: String, userIdToShare: String): Flow<TrackerUiEvent> = flow {
         val trimmed = userIdToShare.trim()
         if (trimmed.isBlank()) {
-            emit(TrackerUiEvent.Error("User ID cannot be empty"))
+            val msg = "User ID cannot be empty"
+            logger.error(TAG, "shareTracker", msg, mapOf("tracker_id" to trackerId))
+            emit(TrackerUiEvent.Error(msg))
             return@flow
         }
         if (trackerId.isBlank()) {
-            emit(TrackerUiEvent.Error("Invalid tracker"))
+            val msg = "Invalid tracker"
+            logger.error(TAG, "shareTracker", msg)
+            emit(TrackerUiEvent.Error(msg))
             return@flow
         }
+        logger.debug(TAG, "shareTracker → trackerId=$trackerId with=$trimmed")
         emit(TrackerUiEvent.Loading("Sharing tracker..."))
         repository.shareTracker(trackerId, trimmed).fold(
-            onSuccess = { emit(TrackerUiEvent.Success) },
-            onFailure = { emit(TrackerUiEvent.Error(it.message ?: "Failed to share tracker")) }
+            onSuccess = {
+                logger.event("tracker_shared", mapOf("tracker_id" to trackerId))
+                emit(TrackerUiEvent.Success)
+            },
+            onFailure = {
+                logger.error(TAG, "shareTracker", it, mapOf("tracker_id" to trackerId, "target_user" to trimmed))
+                emit(TrackerUiEvent.Error(it.message ?: "Failed to share tracker"))
+            }
         )
     }
 
-    /**
-     * Delete a tracker. Emits Loading → Success | Error.
-     */
     fun deleteTracker(trackerId: String): Flow<TrackerUiEvent> = flow {
         if (trackerId.isBlank()) {
-            emit(TrackerUiEvent.Error("Invalid tracker"))
+            val msg = "Invalid tracker"
+            logger.error(TAG, "deleteTracker", msg)
+            emit(TrackerUiEvent.Error(msg))
             return@flow
         }
+        logger.debug(TAG, "deleteTracker → trackerId=$trackerId")
         emit(TrackerUiEvent.Loading("Deleting tracker..."))
         repository.deleteTracker(trackerId).fold(
-            onSuccess = { emit(TrackerUiEvent.Success) },
-            onFailure = { emit(TrackerUiEvent.Error(it.message ?: "Failed to delete tracker")) }
+            onSuccess = {
+                logger.event("tracker_deleted", mapOf("tracker_id" to trackerId))
+                emit(TrackerUiEvent.Success)
+            },
+            onFailure = {
+                logger.error(TAG, "deleteTracker", it, mapOf("tracker_id" to trackerId))
+                emit(TrackerUiEvent.Error(it.message ?: "Failed to delete tracker"))
+            }
         )
+    }
+
+    private companion object {
+        const val TAG = "TrackerUseCase"
     }
 }
