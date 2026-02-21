@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -148,6 +149,11 @@ fun HomeScreen(
                             fontWeight = FontWeight.Normal
                         )
                         Text(
+                            modifier = Modifier.sharedBounds(
+                                sharedContentState = rememberSharedContentState(SharedKeys.USER_PROFILE_NAME),
+                                animatedVisibilityScope = animatedVisibilityScope,
+                                resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                            ),
                             text = user.displayName ?: "there",
                             color = textPrimary,
                             fontSize = 22.sp,
@@ -162,7 +168,13 @@ fun HomeScreen(
                         // User avatar
                         Box(
                             modifier = Modifier
+
                                 .size(40.dp)
+                                .sharedBounds(
+                                    sharedContentState = rememberSharedContentState(SharedKeys.USER_PROFILE_IMAGE),
+                                    animatedVisibilityScope = animatedVisibilityScope,
+                                    resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
+                                )
                                 .clip(CircleShape)
                                 .background(accentPurple.copy(alpha = 0.2f))
                                 .border(1.5.dp, accentPurple.copy(alpha = 0.5f), CircleShape)
@@ -192,7 +204,7 @@ fun HomeScreen(
                                 .background(Color.White.copy(alpha = 0.05f))
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Logout,
+                                imageVector = Icons.AutoMirrored.Outlined.Logout,
                                 contentDescription = "Logout",
                                 tint = textSecondary,
                                 modifier = Modifier.size(18.dp)
