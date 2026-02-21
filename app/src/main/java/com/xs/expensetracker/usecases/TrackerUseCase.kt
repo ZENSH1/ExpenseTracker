@@ -12,6 +12,10 @@ class TrackerUseCase(
     private val logger: AppLogger
 ) {
 
+
+    fun observeTracker(trackerId: String): Flow<Tracker?> = repository.observeTracker(trackerId)
+
+
     fun observeTrackers(userId: String): Flow<List<Tracker>> =
         repository.observeTrackers(userId)
 

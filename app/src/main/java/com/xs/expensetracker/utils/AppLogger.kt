@@ -3,6 +3,7 @@ package com.xs.expensetracker.utils
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.logEvent
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.xs.expensetracker.utils.Utils.log
 
 /**
  * Centralized logger for the app.
@@ -45,6 +46,7 @@ class AppLogger(
         crashlytics.setCustomKey(KEY_OPERATION, operation)
         extra.forEach { (k, v) -> crashlytics.setCustomKey(k, v) }
 
+        "${throwable.message}".log()
         // 2. Add a human-readable breadcrumb
         crashlytics.log("ERROR [$tag.$operation] ${throwable.message}")
 

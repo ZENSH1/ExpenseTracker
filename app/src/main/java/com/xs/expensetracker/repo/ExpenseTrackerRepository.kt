@@ -10,6 +10,7 @@ interface ExpenseTrackerRepository {
 
     // ── Trackers ──────────────────────────────────────────────────────────
     fun observeTrackers(userId: String): Flow<List<Tracker>>
+    fun observeTracker(trackerId: String): Flow<Tracker?>
     suspend fun createTracker(name: String, ownerId: String): Result<String>
     suspend fun updateTrackerName(trackerId: String, newName: String): Result<Unit>
     suspend fun shareTracker(trackerId: String, userIdToShare: String): Result<Unit>
