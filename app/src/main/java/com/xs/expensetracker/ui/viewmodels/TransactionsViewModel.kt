@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.data.enums.TransactionType
 import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.repo.ExpenseTrackerRepository
-import com.xs.expensetracker.utils.Utils.log
+import com.xs.expensetracker.usecases.ReceiptUseCase
+import com.xs.expensetracker.usecases.SourceUseCase
+import com.xs.expensetracker.usecases.TrackerUseCase
+import com.xs.expensetracker.utils.events.TrackerUiEvent
+import com.xs.expensetracker.utils.events.TransactionUiEvent
 import com.xs.expensetracker.utils.states.TransactionsUiState
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,14 +19,16 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class TransactionsViewModel(
-    private val repository: ExpenseTrackerRepository
+    private val trackerUseCase: TrackerUseCase,
+    private val sourceUseCase: SourceUseCase,
+    private val receiptUseCase: ReceiptUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionsUiState())
     val uiState: StateFlow<TransactionsUiState> = _uiState.asStateFlow()
+
     private var observeTrackersJob: Job? = null
     private var observeSourcesJob: Job? = null
     private var observeReceiptsJob: Job? = null
@@ -35,116 +39,82 @@ class TransactionsViewModel(
 
     fun observeTrackers(userId: String) {
         observeTrackersJob?.cancel()
-
-        observeTrackersJob = repository
+        observeTrackersJob = trackerUseCase
             .observeTrackers(userId)
-            .onEach { trackers ->
-                _uiState.update { it.copy(trackers = trackers) }
-            }
-            .catch { e ->
-                _uiState.update { it.copy(error = e.message) }
-            }
+            .onEach { trackers -> _uiState.update { it.copy(trackers = trackers) } }
+            .catch { e -> _uiState.update { it.copy(error = e.message) } }
             .launchIn(viewModelScope)
     }
 
     fun createTracker(name: String, ownerId: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            trackerUseCase.createTracker(name, ownerId).collect {
 
-            val result = repository.createTracker(name, ownerId)
+            }
+        }
+    }
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    error = result.exceptionOrNull()?.message
-                )
+    fun updateTrackerName(trackerId: String, newName: String) {
+        viewModelScope.launch {
+            trackerUseCase.updateTrackerName(trackerId, newName).collect { event->
+                handleTrackerEvent(event)
+
             }
         }
     }
 
     fun shareTracker(trackerId: String, userIdToShare: String) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val result = repository.shareTracker(trackerId, userIdToShare)
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    error = result.exceptionOrNull()?.message
-                )
+            trackerUseCase.shareTracker(trackerId, userIdToShare).collect { event ->
+                handleTrackerEvent(event)
             }
         }
     }
 
     fun deleteTracker(trackerId: String) {
         viewModelScope.launch {
-            repository.deleteTracker(trackerId)
-                .onFailure { error ->
-                    _uiState.update { it.copy(error = error.message) }
-                }
+            trackerUseCase.deleteTracker(trackerId).collect { event ->
+                handleTrackerEvent(event)
+            }
         }
     }
 
-
+    private fun handleTrackerEvent(event: TrackerUiEvent) {
+        _uiState.update {
+            when (event) {
+                is TrackerUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
+                is TrackerUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
+                is TrackerUiEvent.Error   -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
+            }
+        }
+    }
 
     // ------------------------------------------------
     // SOURCES
     // ------------------------------------------------
 
-    fun observeSources(
-        trackerId: String,
-        type: TransactionType? = null
-    ) {
+    fun observeSources(trackerId: String, type: TransactionType? = null) {
         observeSourcesJob?.cancel()
-
-        observeSourcesJob = repository
+        observeSourcesJob = sourceUseCase
             .observeSources(trackerId, type)
-            .onEach { sources ->
-                _uiState.update { it.copy(sources = sources) }
-            }
-            .catch { e ->
-                _uiState.update {
-                    it.copy(error = e.message)
-                }
-            }
+            .onEach { sources -> _uiState.update { it.copy(sources = sources) } }
+            .catch { e -> _uiState.update { it.copy(error = e.message) } }
             .launchIn(viewModelScope)
     }
 
-    fun createSource(
-        trackerId: String,
-        name: String,
-        type: TransactionType
-    ) {
+    fun createSource(trackerId: String, name: String, type: TransactionType) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            val result = repository.createSource(
-                trackerId,
-                name,
-                type
-            )
-
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    error = result.exceptionOrNull()?.message
-                )
+            sourceUseCase.createSource(trackerId, name, type).collect { event ->
+                handleTransactionEvent(event)
             }
         }
     }
 
-    fun deleteSource(
-        trackerId: String,
-        sourceId: String
-    ) {
+    fun deleteSource(trackerId: String, sourceId: String) {
         viewModelScope.launch {
-            repository.deleteSource(trackerId, sourceId)
-                .onFailure { error->
-                    _uiState.update {
-                        it.copy(error = error.message)
-                    }
-                }
+            sourceUseCase.deleteSource(trackerId, sourceId).collect { event ->
+                handleTransactionEvent(event)
+            }
         }
     }
 
@@ -152,22 +122,12 @@ class TransactionsViewModel(
     // RECEIPTS
     // ------------------------------------------------
 
-    fun observeReceipts(
-        trackerId: String,
-        sourceId: String
-    ) {
+    fun observeReceipts(trackerId: String, sourceId: String) {
         observeReceiptsJob?.cancel()
-
-        observeReceiptsJob = repository
+        observeReceiptsJob = receiptUseCase
             .observeReceipts(trackerId, sourceId)
-            .onEach { receipts ->
-                _uiState.update { it.copy(receipts = receipts) }
-            }
-            .catch { e ->
-                _uiState.update {
-                    it.copy(error = e.message)
-                }
-            }
+            .onEach { receipts -> _uiState.update { it.copy(receipts = receipts) } }
+            .catch { e -> _uiState.update { it.copy(error = e.message) } }
             .launchIn(viewModelScope)
     }
 
@@ -181,64 +141,38 @@ class TransactionsViewModel(
         date: Long
     ) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            receiptUseCase.addReceipt(trackerId, sourceId, type, name, description, amount, date)
+                .collect { event -> handleTransactionEvent(event) }
+        }
+    }
 
-            val result = repository.addReceipt(
-                trackerId,
-                sourceId,
-                type,
-                name,
-                description,
-                amount,
-                date
-            )
+    fun updateReceipt(trackerId: String, sourceId: String, receipt: TransactionReceipt) {
+        viewModelScope.launch {
+            receiptUseCase.updateReceipt(trackerId, sourceId, receipt)
+                .collect { event -> handleTransactionEvent(event) }
+        }
+    }
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    error = result.exceptionOrNull()?.message
-                )
+    fun deleteReceipt(trackerId: String, sourceId: String, receiptId: String) {
+        viewModelScope.launch {
+            receiptUseCase.deleteReceipt(trackerId, sourceId, receiptId)
+                .collect { event -> handleTransactionEvent(event) }
+        }
+    }
+
+    private fun handleTransactionEvent(event: TransactionUiEvent) {
+        _uiState.update {
+            when (event) {
+                is TransactionUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
+                is TransactionUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
+                is TransactionUiEvent.Error   -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
             }
         }
     }
 
-    fun updateReceipt(
-        trackerId: String,
-        sourceId: String,
-        receipt: TransactionReceipt
-    ) {
-        viewModelScope.launch {
-            repository.updateReceipt(trackerId, sourceId, receipt)
-                .onFailure { error->
-                    _uiState.update {
-                        it.copy(error = error.message)
-                    }
-                }
-        }
-    }
-
-    fun deleteReceipt(
-        trackerId: String,
-        sourceId: String,
-        receiptId: String
-    ) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-
-            repository.deleteReceipt(
-                trackerId,
-                sourceId,
-                receiptId
-            ).onFailure { error->
-                error.stackTraceToString().log()
-                _uiState.update {
-                    it.copy(error = error.message, isLoading = false)
-                }
-            }.onSuccess {
-                _uiState.update { it.copy(isLoading = false) }
-            }
-        }
-    }
+    // ------------------------------------------------
+    // UTILITY
+    // ------------------------------------------------
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
