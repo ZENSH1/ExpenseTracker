@@ -52,7 +52,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReceiptsScreen(
-    // -- new params --
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
@@ -63,19 +62,22 @@ fun ReceiptsScreen(
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
-    fun getSourceById(sourceId:String): TransactionSource?{
-       return txState.sources.findLast{ it.id == sourceId }
-    }
 
+    fun getSourceById(sourceId: String): TransactionSource? =
+        txState.sources.findLast { it.id == sourceId }
+
+    // null = All Sources; non-null = specific source
     var filterSourceId by remember { mutableStateOf<String?>(null) }
     var filterType by remember { mutableStateOf<TransactionType?>(type) }
     var showAddModal by remember { mutableStateOf(false) }
     var editingReceipt by remember { mutableStateOf<TransactionReceipt?>(null) }
     var deletingReceipt by remember { mutableStateOf<TransactionReceipt?>(null) }
 
+    // Re-observe whenever trackerId or filterSourceId changes.
+    // filterSourceId = null → all receipts across the tracker (collection group query).
     LaunchedEffect(trackerId, filterSourceId) {
         transactionsViewModel.observeSources(trackerId, null) // load all sources for filter chips
-        transactionsViewModel.observeReceipts(trackerId, filterSourceId ?: "")
+        transactionsViewModel.observeReceipts(trackerId, filterSourceId) // null = all
     }
 
     val currency = remember { NumberFormat.getCurrencyInstance(Locale.getDefault()) }
@@ -85,7 +87,9 @@ fun ReceiptsScreen(
         filterType == null || receipt.type == filterType || getSourceById(receipt.sourceId)?.type == filterType
     }
 
-    val activeColor = if (filterType == TransactionType.INCOME) incomeColor else if (filterType == TransactionType.EXPENSE) expenseColor else accentPurple
+    val activeColor = if (filterType == TransactionType.INCOME) incomeColor
+    else if (filterType == TransactionType.EXPENSE) expenseColor
+    else accentPurple
 
     // Delete dialog
     deletingReceipt?.let { receipt ->
@@ -121,7 +125,7 @@ fun ReceiptsScreen(
         ReceiptFormModal(
             trackerId = trackerId,
             transactionsViewModel = transactionsViewModel,
-            initialType = receipt.type?: TransactionType.INCOME,
+            initialType = receipt.type ?: TransactionType.INCOME,
             editingReceipt = receipt,
             onDismiss = { transactionsViewModel.clearError(); editingReceipt = null }
         )
@@ -187,11 +191,22 @@ fun ReceiptsScreen(
                 Column(
                     modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
-                )
-                {
+                ) {
 
                     // ── Summary ─────────────────────────────────────────
-                    val total = filteredReceipts.sumOf { it.amount }
+                    // For "All" type: income receipts add, expense receipts subtract (net balance)
+                    val total = when (filterType) {
+                        null -> filteredReceipts.sumOf { receipt ->
+                            if (receipt.type == TransactionType.INCOME) receipt.amount else -receipt.amount
+                        }
+                        else -> filteredReceipts.sumOf { it.amount }
+                    }
+                    val isNetPositive = total >= 0.0
+                    val summaryColor = when (filterType) {
+                        null -> if (isNetPositive) incomeColor else expenseColor
+                        else -> activeColor
+                    }
+
                     Box(
                         modifier = Modifier.fillMaxWidth()
                             .sharedBounds(
@@ -201,9 +216,8 @@ fun ReceiptsScreen(
                             )
                             .clip(RoundedCornerShape(20.dp))
                             .background(bgCard)
-                            .border(1.dp, activeColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                            .border(1.dp, summaryColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
                             .padding(20.dp)
-
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -211,10 +225,17 @@ fun ReceiptsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Total Amount", color = textSecondary, fontSize = 12.sp)
                                 Text(
-                                    currency.format(total),
-                                    color = activeColor,
+                                    text = if (filterType == null) "Net Balance" else "Total Amount",
+                                    color = textSecondary,
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = buildString {
+                                        if (filterType == null && !isNetPositive) append("−")
+                                        append(currency.format(if (filterType == null) kotlin.math.abs(total) else total))
+                                    },
+                                    color = summaryColor,
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
@@ -302,9 +323,11 @@ fun ReceiptsScreen(
                                 txState.sources.filter { it.type == filterType || filterType == null },
                                 key = { it.id }
                             ) { source ->
-                                val chipColor = if (source.type == TransactionType.INCOME) incomeColor else expenseColor
+                                val chipColor =
+                                    if (source.type == TransactionType.INCOME) incomeColor else expenseColor
 
-                                val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+                                val visibleState =
+                                    remember { MutableTransitionState(false).apply { targetState = true } }
 
                                 AnimatedVisibility(
                                     visibleState = visibleState,
@@ -312,7 +335,10 @@ fun ReceiptsScreen(
                                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
                                         initialScale = 0.7f
                                     ) + expandHorizontally(
-                                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
                                     ),
                                     exit = fadeOut(tween(200)) + scaleOut(targetScale = 0.7f) + shrinkHorizontally(
                                         animationSpec = tween(200)
@@ -320,12 +346,18 @@ fun ReceiptsScreen(
                                     modifier = Modifier.animateItem(
                                         fadeInSpec = tween(300),
                                         fadeOutSpec = tween(200),
-                                        placementSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium)
+                                        placementSpec = spring(
+                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                            stiffness = Spring.StiffnessMedium
+                                        )
                                     )
                                 ) {
                                     FilterChip(
                                         selected = filterSourceId == source.id,
-                                        onClick = { filterSourceId = if (filterSourceId == source.id) null else source.id },
+                                        onClick = {
+                                            filterSourceId =
+                                                if (filterSourceId == source.id) null else source.id
+                                        },
                                         label = { Text(source.name, fontSize = 12.sp, maxLines = 1) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = chipColor.copy(alpha = 0.15f),
@@ -376,9 +408,7 @@ fun ReceiptsScreen(
                         ) {
                             items(filteredReceipts, key = { it.id }) { receipt ->
                                 val visibleState = remember {
-                                    MutableTransitionState(false).apply {
-                                        targetState = true
-                                    }
+                                    MutableTransitionState(false).apply { targetState = true }
                                 }
                                 AnimatedVisibility(
                                     visibleState = visibleState,
@@ -418,7 +448,6 @@ fun ReceiptsScreen(
                 }
             }
 
-
             // ── Floating Loading Indicator ───────────────────────
             AnimatedVisibility(
                 visible = txState.isLoading,
@@ -450,9 +479,7 @@ fun ReceiptsScreen(
                 }
             }
 
-
             // ── Floating Error Snackbar ──────────────────────────
-
             AnimatedVisibility(
                 visible = txState.error != null,
                 enter = fadeIn(tween(300)) + slideInVertically(
@@ -495,6 +522,3 @@ fun ReceiptsScreen(
         }
     }
 }
-
-
-

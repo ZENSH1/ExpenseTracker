@@ -36,7 +36,6 @@ class ExpenseTrackerRepositoryImpl(
     // TRACKERS
     // ------------------------------------------------
 
-
     override fun observeTracker(trackerId: String): Flow<Tracker?> = callbackFlow {
         if (trackerId.isBlank()) {
             trySend(null)
@@ -53,7 +52,6 @@ class ExpenseTrackerRepositoryImpl(
                 trySend(tracker)
             }
         awaitClose { listener.remove() }
-
     }
 
     override fun observeTrackers(userId: String): Flow<List<Tracker>> = callbackFlow {
@@ -79,9 +77,6 @@ class ExpenseTrackerRepositoryImpl(
 
         awaitClose { listener.remove() }
     }
-
-
-
 
     override suspend fun createTracker(
         name: String,
@@ -219,33 +214,49 @@ class ExpenseTrackerRepositoryImpl(
     // RECEIPTS
     // ------------------------------------------------
 
+    /**
+     * sourceId == null or blank  →  collection-group query across ALL sources in this tracker.
+     *                               Requires a Firestore collection-group index on `trackerId` + `date`.
+     * sourceId non-blank         →  scoped query for that specific source only.
+     */
     override fun observeReceipts(
         trackerId: String,
-        sourceId: String
+        sourceId: String?
     ): Flow<List<TransactionReceipt>> = callbackFlow {
-        if (trackerId.isBlank() || sourceId.isBlank()) {
+        if (trackerId.isBlank()) {
             trySend(emptyList())
             close()
             return@callbackFlow
         }
 
-        val listener = trackersRef
-            .document(trackerId)
-            .collection(SOURCES)
-            .document(sourceId)
-            .collection(RECEIPTS)
-            .orderBy(DATE, Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
+        val listener = if (sourceId.isNullOrBlank()) {
+            // ── All sources: collection-group query filtered by trackerId ──────
+            firestore.collectionGroup(RECEIPTS)
+                .whereEqualTo("trackerId", trackerId)
+                .orderBy(DATE, Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) { close(error); return@addSnapshotListener }
+                    val receipts = snapshot?.documents
+                        ?.mapNotNull { it.toObject(TransactionReceipt::class.java)?.copy(id = it.id) }
+                        ?: emptyList()
+                    trySend(receipts)
                 }
-                val receipts = snapshot?.documents
-                    ?.mapNotNull {
-                        it.toObject(TransactionReceipt::class.java)?.copy(id = it.id)
-                    } ?: emptyList()
-                trySend(receipts)
-            }
+        } else {
+            // ── Specific source ───────────────────────────────────────────────
+            trackersRef
+                .document(trackerId)
+                .collection(SOURCES)
+                .document(sourceId)
+                .collection(RECEIPTS)
+                .orderBy(DATE, Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) { close(error); return@addSnapshotListener }
+                    val receipts = snapshot?.documents
+                        ?.mapNotNull { it.toObject(TransactionReceipt::class.java)?.copy(id = it.id) }
+                        ?: emptyList()
+                    trySend(receipts)
+                }
+        }
 
         awaitClose { listener.remove() }
     }
@@ -319,10 +330,8 @@ class ExpenseTrackerRepositoryImpl(
             val currentTotal   = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
             val currentGrand   = trackerSnap.getDouble(GRAND_TOTAL) ?: 0.0
 
-            // Delta on source totalAmount (always positive accumulation per source)
             val sourceDelta    = receipt.amount - oldAmount
 
-            // Delta on tracker grandTotal (signed by type)
             val oldSigned  = if (oldType == TransactionType.INCOME) oldAmount else -oldAmount
             val newSigned  = if (receipt.type == TransactionType.INCOME) receipt.amount else -receipt.amount
             val grandDelta = newSigned - oldSigned
@@ -344,14 +353,12 @@ class ExpenseTrackerRepositoryImpl(
             val receiptRef = sourceRef.collection(RECEIPTS).document(receiptId)
 
             firestore.runTransaction { transaction ->
-                // All reads first
                 val receiptSnap = transaction.get(receiptRef)
                 if (!receiptSnap.exists()) throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
                 val sourceSnap  = transaction.get(sourceRef)
                 val trackerSnap = transaction.get(trackerRef)
 
-                // All writes after
                 val amount       = receiptSnap.getDouble(AMOUNT) ?: 0.0
                 val typeStr      = receiptSnap.getString(FirebaseConst.TYPE)
                 val type         = typeStr?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }

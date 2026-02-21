@@ -22,7 +22,10 @@ interface ExpenseTrackerRepository {
     suspend fun deleteSource(trackerId: String, sourceId: String): Result<Unit>
 
     // ── Receipts ──────────────────────────────────────────────────────────
-    fun observeReceipts(trackerId: String, sourceId: String): Flow<List<TransactionReceipt>>
+    // sourceId = null  → fetch ALL receipts across every source in the tracker
+    // sourceId = ""    → same as null (treated as "all")
+    // sourceId = "xyz" → fetch receipts for that specific source only
+    fun observeReceipts(trackerId: String, sourceId: String?): Flow<List<TransactionReceipt>>
     suspend fun addReceipt(
         trackerId: String,
         sourceId: String,
