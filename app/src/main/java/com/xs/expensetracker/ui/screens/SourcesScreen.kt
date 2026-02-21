@@ -44,11 +44,11 @@ fun SourcesScreen(
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    trackerId: String
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
     val authState by authViewModel.uiState.collectAsState()
-    val trackerId = (authState as? AuthUiState.Authenticated)?.user?.uid ?: return
 
     var filterType by remember { mutableStateOf<TransactionType?>(type) }
     var showAddModal by remember { mutableStateOf(false) }
@@ -180,7 +180,21 @@ fun SourcesScreen(
 
 
                     // ── Summary Card ────────────────────────────────────
-                    val total = txState.sources.sumOf { it.totalAmount }
+                    // When "All" is selected: net = income sources total − expense sources total
+                    // When a specific type is selected: show that type's total directly
+                    val total = when (filterType) {
+                        TransactionType.INCOME  -> txState.sources.sumOf { it.totalAmount }
+                        TransactionType.EXPENSE -> txState.sources.sumOf { it.totalAmount }
+                        null -> txState.sources.sumOf { source ->
+                            if (source.type == TransactionType.INCOME) source.totalAmount
+                            else -source.totalAmount
+                        }
+                    }
+                    val isNetPositive = total >= 0.0
+                    val summaryColor = when (filterType) {
+                        null -> if (isNetPositive) incomeColor else expenseColor
+                        else -> activeColor
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -192,7 +206,7 @@ fun SourcesScreen(
                             )
                             .clip(RoundedCornerShape(20.dp))
                             .background(bgCard)
-                            .border(1.dp, activeColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                            .border(1.dp, summaryColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
                             .padding(20.dp)
                     ) {
                         Row(
@@ -203,10 +217,10 @@ fun SourcesScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 // 👇 Label flies in from HomeScreen's label
                                 Text(
-                                    text = "Total ${
-                                        filterType?.name?.lowercase()
-                                            ?.replaceFirstChar { it.uppercase() } ?: "All"
-                                    }",
+                                    text = when (filterType) {
+                                        null -> if (isNetPositive) "Net Balance" else "Net Balance"
+                                        else -> "Total ${filterType?.name?.lowercase()?.replaceFirstChar { it.uppercase() }}"
+                                    },
                                     color = textSecondary,
                                     fontSize = 12.sp,
                                     modifier = Modifier.sharedElement(
@@ -216,8 +230,11 @@ fun SourcesScreen(
                                 )
                                 // 👇 Amount flies in from HomeScreen's amount
                                 Text(
-                                    text = currency.format(total),
-                                    color = activeColor,
+                                    text = buildString {
+                                        if (filterType == null && !isNetPositive) append("−")
+                                        append(currency.format(if (filterType == null) kotlin.math.abs(total) else total))
+                                    },
+                                    color = summaryColor,
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     modifier = Modifier.sharedElement(
@@ -238,12 +255,16 @@ fun SourcesScreen(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(activeColor.copy(alpha = 0.1f))
+                                        .background(summaryColor.copy(alpha = 0.1f))
                                         .padding(horizontal = 10.dp, vertical = 4.dp)
                                 ) {
                                     Text(
-                                        text = if (filterType == TransactionType.INCOME) "↑ Income" else "↓ Expense",
-                                        color = activeColor,
+                                        text = when (filterType) {
+                                            TransactionType.INCOME  -> "↑ Income"
+                                            TransactionType.EXPENSE -> "↓ Expense"
+                                            null -> if (isNetPositive) "↑ Positive" else "↓ Negative"
+                                        },
+                                        color = summaryColor,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )

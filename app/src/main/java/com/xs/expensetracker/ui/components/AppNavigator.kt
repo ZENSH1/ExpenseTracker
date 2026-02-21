@@ -24,6 +24,7 @@ import com.xs.expensetracker.ui.screens.ProfileScreen
 import com.xs.expensetracker.ui.screens.ReceiptsScreen
 import com.xs.expensetracker.ui.screens.SourcesScreen
 import com.xs.expensetracker.ui.screens.SplashScreen
+import com.xs.expensetracker.ui.screens.TrackerSelectionScreen
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.utils.sealed.AuthRoute
 import com.xs.expensetracker.utils.sealed.HomeRoute
@@ -31,6 +32,7 @@ import com.xs.expensetracker.utils.sealed.ProfileRoute
 import com.xs.expensetracker.utils.sealed.ReceiptsRoute
 import com.xs.expensetracker.utils.sealed.SourcesRoute
 import com.xs.expensetracker.utils.sealed.SplashRoute
+import com.xs.expensetracker.utils.sealed.TrackerSelectionRoute
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -42,7 +44,6 @@ fun AppNavigator(
     val backStack = rememberNavBackStack(SplashRoute)
     val currentKey = backStack.lastOrNull() ?: SplashRoute
 
-    // Handle system back button / gesture for the whole app
     BackHandler(enabled = backStack.size > 1) {
         backStack.removeLastOrNull()
     }
@@ -55,29 +56,46 @@ fun AppNavigator(
                     .togetherWith(slideOutHorizontally(tween(350)) { -it } + fadeOut(tween(350)))
             },
             label = "root_nav"
-        ) { key -> // this: AnimatedVisibilityScope ✅
+        ) { key ->
 
             when (key) {
+
+                // ── Splash ───────────────────────────────────────────────
                 SplashRoute -> SplashScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     authState = authState,
                     onResult = { loggedIn ->
                         backStack.clear()
-                        backStack.add(if (loggedIn) HomeRoute else AuthRoute)
+                        backStack.add(if (loggedIn) TrackerSelectionRoute else AuthRoute)
                     }
                 )
 
+                // ── Auth ─────────────────────────────────────────────────
                 AuthRoute -> AuthScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     onLoginSuccess = {
                         backStack.clear()
-                        backStack.add(HomeRoute)
+                        backStack.add(TrackerSelectionRoute)
                     }
                 )
 
-                HomeRoute -> HomeScreen(
+                // ── Tracker Selection ─────────────────────────────────────
+                TrackerSelectionRoute -> TrackerSelectionScreen(
+                    onTrackerSelected = { tracker ->
+                        backStack.add(HomeRoute(tracker))
+                    },
+                    onLogout = {
+                        authViewModel.signOut()
+                        backStack.clear()
+                        backStack.add(AuthRoute)
+                    }
+                )
+
+                // ── Home ─────────────────────────────────────────────────
+                is HomeRoute -> HomeScreen(
+                    tracker = key.tracker,
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     onLogout = {
@@ -86,20 +104,25 @@ fun AppNavigator(
                         backStack.add(AuthRoute)
                     },
                     onNavigateToSources = { type ->
-                        backStack.add(SourcesRoute(type))
+                        backStack.add(SourcesRoute(trackerId = key.tracker.id, type = type))
                     },
                     onNavigateToReceipts = { type ->
-                        backStack.add(ReceiptsRoute(type))
+                        backStack.add(ReceiptsRoute(trackerId = key.tracker.id, type = type))
                     },
                     onProfileClicked = {
                         backStack.add(ProfileRoute)
+                    },
+                    onBack = {
+                        backStack.removeLastOrNull()
                     }
                 )
 
+                // ── Profile ──────────────────────────────────────────────
                 ProfileRoute -> ProfileScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     onLogout = {
+                        authViewModel.signOut()
                         backStack.clear()
                         backStack.add(AuthRoute)
                     },
@@ -108,18 +131,22 @@ fun AppNavigator(
                     }
                 )
 
+                // ── Sources ──────────────────────────────────────────────
                 is SourcesRoute -> SourcesScreen(
+                    trackerId = key.trackerId,
                     type = key.type,
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     onBack = { backStack.removeLastOrNull() }
                 )
 
+                // ── Receipts ─────────────────────────────────────────────
                 is ReceiptsRoute -> ReceiptsScreen(
+                    trackerId = key.trackerId,
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     type = key.type,
-                    onBack = { backStack.removeLastOrNull() },
+                    onBack = { backStack.removeLastOrNull() }
                 )
 
                 else -> Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
