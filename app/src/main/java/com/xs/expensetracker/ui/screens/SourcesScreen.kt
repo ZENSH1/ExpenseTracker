@@ -12,6 +12,9 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -140,7 +143,7 @@ fun SourcesScreen(
                         navigationIcon = {
                             IconButton(onClick = onBack) {
                                 Icon(
-                                    Icons.Filled.ArrowBack,
+                                    Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Back",
                                     tint = textPrimary
                                 )
@@ -200,7 +203,7 @@ fun SourcesScreen(
                             .fillMaxWidth()
                             // 👇 Matches the card bounds from HomeScreen
                             .sharedBounds(
-                                sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                                sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${trackerId}"),
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                             )
@@ -411,7 +414,7 @@ private fun SourceCard(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (source.type == TransactionType.INCOME) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+                imageVector = if (source.type == TransactionType.INCOME) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                 contentDescription = null,
                 tint = color,
                 modifier = Modifier.size(22.dp)
@@ -532,7 +535,7 @@ private fun SourceFormModal(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(
-                                if (t == TransactionType.INCOME) Icons.Filled.TrendingUp else Icons.Filled.TrendingDown,
+                                if (t == TransactionType.INCOME) Icons.AutoMirrored.Filled.TrendingUp else Icons.AutoMirrored.Filled.TrendingDown,
                                 contentDescription = null, tint = if (isSelected) tabColor else textSecondary, modifier = Modifier.size(15.dp)
                             )
                             Text(t.name.lowercase().replaceFirstChar { it.uppercase() }, color = if (isSelected) tabColor else textSecondary, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal)

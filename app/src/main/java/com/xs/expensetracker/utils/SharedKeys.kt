@@ -6,6 +6,8 @@ object SharedKeys {
     const val GRAND_TOTAL_AMOUNT = "grand_total_amount"
     const val GRAND_TOTAL_LABEL  = "grand_total_label"
 
+    const val TRACKER_CARD = "tracker_card_"
+
     const val TABS_LAYOUT = "tabs_layout"
 
     const val ROW_ITEMS = "row_items"

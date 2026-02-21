@@ -1,5 +1,6 @@
 package com.xs.expensetracker.ui.screens
 
+import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.copy
@@ -11,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -40,6 +43,7 @@ import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -64,9 +68,54 @@ fun HomeScreen(
 
     val user = (authState as? AuthUiState.Authenticated)?.user ?: return
 
+    val context        = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
     var showAddSourceModal  by remember { mutableStateOf(false) }
     var showAddReceiptModal by remember { mutableStateOf(false) }
     var selectedType        by remember { mutableStateOf(TransactionType.INCOME) }
+
+    // ── Export state ─────────────────────────────────────────────────────────
+    var isExporting         by remember { mutableStateOf(false) }
+    var exportSnackbarMsg   by remember { mutableStateOf<String?>(null) }
+
+    // helper: fire share intent for a FileProvider URI
+    fun shareUri(uri: android.net.Uri, mimeType: String, chooserTitle: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, chooserTitle))
+    }
+
+    fun onExportCsv() {
+        if (isExporting) return
+        coroutineScope.launch {
+            isExporting = true
+            val uri = transactionsViewModel.exportToCsv(context, tracker)
+            isExporting = false
+            if (uri != null) {
+                shareUri(uri, "text/csv", "Share CSV Report")
+            } else {
+                exportSnackbarMsg = "CSV export failed. Please try again."
+            }
+        }
+    }
+
+    fun onExportPdf() {
+        if (isExporting) return
+        coroutineScope.launch {
+            isExporting = true
+            val uri = transactionsViewModel.exportToPdf(context, tracker)
+            isExporting = false
+            if (uri != null) {
+                shareUri(uri, "application/pdf", "Share PDF Report")
+            } else {
+                exportSnackbarMsg = "PDF export failed. Please try again."
+            }
+        }
+    }
 
     val trackerId = tracker.id
 
@@ -208,13 +257,16 @@ fun HomeScreen(
                 // ── Grand Total Card ──────────────────────────────────────
                 GrandTotalCard(
                     Modifier
-                    .fillMaxWidth()
+                        .fillMaxWidth()
                         .sharedBounds(
-                            sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                            sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${tracker.id}"),
                             animatedVisibilityScope = animatedVisibilityScope,
                         ),
                     grandTotal = txState.selectedTracker?.grandTotal?.toDouble()?:0.0,
-                    currencyFormatter = currencyFormatter
+                    currencyFormatter = currencyFormatter,
+                    isExporting = isExporting,
+                    onExportCsv = { onExportCsv() },
+                    onExportPdf = { onExportPdf() }
                 )
 
                 // ── Income / Expense Tabs ─────────────────────────────────
@@ -326,7 +378,7 @@ fun HomeScreen(
                 )
 
                 NavCard(
-                    icon = Icons.Outlined.ReceiptLong,
+                    icon = Icons.AutoMirrored.Outlined.ReceiptLong,
                     title = "Transaction Receipts",
                     subtitle = "${txState.receipts.size} receipts",
                     accentColor = activeColor,
@@ -393,24 +445,62 @@ fun HomeScreen(
             }
         )
     }
+
+    // ── Export error snackbar ─────────────────────────────────────────────────
+    exportSnackbarMsg?.let { msg ->
+        LaunchedEffect(msg) {
+            kotlinx.coroutines.delay(3000)
+            exportSnackbarMsg = null
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 32.dp, start = 20.dp, end = 20.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn() + slideInVertically { it },
+                exit  = fadeOut() + slideOutVertically { it }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50.dp))
+                        .background(bgCard)
+                        .border(1.dp, expenseColor.copy(alpha = 0.3f), RoundedCornerShape(50.dp))
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Filled.ErrorOutline, null, tint = expenseColor, modifier = Modifier.size(16.dp))
+                    Text(msg, color = textPrimary, fontSize = 13.sp)
+                }
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grand Total Card
+// Grand Total Card  (with export dropdown)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun GrandTotalCard(
     modifier: Modifier = Modifier,
     grandTotal: Double,
-    currencyFormatter: NumberFormat
+    currencyFormatter: NumberFormat,
+    isExporting: Boolean = false,
+    onExportCsv: () -> Unit = {},
+    onExportPdf: () -> Unit = {}
 ) {
-    val isPositive  = grandTotal >= 0.0
-    val totalColor  by animateColorAsState(
+    val isPositive = grandTotal >= 0.0
+    val totalColor by animateColorAsState(
         targetValue = if (isPositive) incomeColor else expenseColor,
         animationSpec = tween(600, easing = EaseInOutCubic),
         label = "totalColor"
     )
+
+    var menuExpanded by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -426,14 +516,177 @@ private fun GrandTotalCard(
             .border(1.dp, totalColor.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "NET BALANCE",
-                color = textSecondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.5.sp
-            )
+        // ── Balance info ───────────────────────────────────────────────────
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Top row: label + export button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "NET BALANCE",
+                    color = textSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.5.sp
+                )
+
+                // ── Export button + dropdown ──────────────────────────────
+                Box {
+                    // Export icon button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(totalColor.copy(alpha = 0.12f))
+                            .border(1.dp, totalColor.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                            .clickable(enabled = !isExporting) { menuExpanded = true }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AnimatedContent(
+                            targetState = isExporting,
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            label = "export_btn"
+                        ) { exporting ->
+                            if (exporting) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(11.dp),
+                                        color = totalColor,
+                                        strokeWidth = 1.5.dp
+                                    )
+                                    Text(
+                                        "Exporting…",
+                                        color = totalColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.FileDownload,
+                                        contentDescription = "Export",
+                                        tint = totalColor,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Text(
+                                        "Export",
+                                        color = totalColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Dropdown menu
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                        modifier = Modifier
+                            .background(bgCard)
+                            .border(1.dp, totalColor.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                    ) {
+                        // CSV option
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(
+                                        "Export to CSV",
+                                        color = textPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "Spreadsheet · Excel compatible",
+                                        color = textSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(incomeColor.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.TableChart,
+                                        contentDescription = null,
+                                        tint = incomeColor,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onExportCsv()
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = textSecondary.copy(alpha = 0.08f),
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+
+                        // PDF option
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(
+                                        "Export to PDF",
+                                        color = textPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "Formatted report · Share ready",
+                                        color = textSecondary,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(accentPurple.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.PictureAsPdf,
+                                        contentDescription = null,
+                                        tint = accentPurple,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                menuExpanded = false
+                                onExportPdf()
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Amount
             Text(
                 text = buildString {
                     if (!isPositive) append("−")
@@ -443,6 +696,8 @@ private fun GrandTotalCard(
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold
             )
+
+            // Subtitle
             Text(
                 text = if (isPositive) "Income exceeds expenses" else "Expenses exceed income",
                 color = textSecondary,
