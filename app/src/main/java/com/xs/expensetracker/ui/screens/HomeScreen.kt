@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -258,7 +259,7 @@ fun HomeScreen(
                     Modifier
                         .fillMaxWidth()
                         .sharedBounds(
-                            sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                            sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${tracker.id}"),
                             animatedVisibilityScope = animatedVisibilityScope,
                         ),
                     grandTotal = txState.selectedTracker?.grandTotal?.toDouble()?:0.0,
@@ -377,7 +378,7 @@ fun HomeScreen(
                 )
 
                 NavCard(
-                    icon = Icons.Outlined.ReceiptLong,
+                    icon = Icons.AutoMirrored.Outlined.ReceiptLong,
                     title = "Transaction Receipts",
                     subtitle = "${txState.receipts.size} receipts",
                     accentColor = activeColor,

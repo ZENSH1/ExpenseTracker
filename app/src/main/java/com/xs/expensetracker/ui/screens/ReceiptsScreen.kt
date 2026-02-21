@@ -210,7 +210,7 @@ fun ReceiptsScreen(
                     Box(
                         modifier = Modifier.fillMaxWidth()
                             .sharedBounds(
-                                sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                                sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${trackerId}"),
                                 animatedVisibilityScope = animatedVisibilityScope,
                                 resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                             )
