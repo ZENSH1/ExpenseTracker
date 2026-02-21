@@ -13,9 +13,10 @@ class ReceiptUseCase(
     private val logger: AppLogger
 ) {
 
+    // sourceId = null or "" → all receipts across every source in the tracker
     fun observeReceipts(
         trackerId: String,
-        sourceId: String
+        sourceId: String?
     ): Flow<List<TransactionReceipt>> =
         repository.observeReceipts(trackerId, sourceId)
 

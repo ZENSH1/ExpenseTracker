@@ -35,12 +35,11 @@ class TransactionsViewModel(
 
     private var observeTrackerJob: Job? = null
 
-
     // ------------------------------------------------
     // TRACKERS
     // ------------------------------------------------
 
-    fun observeTracker(trackerId: String){
+    fun observeTracker(trackerId: String) {
         observeTrackersJob?.cancel()
         observeTrackersJob = trackerUseCase
             .observeTracker(trackerId)
@@ -60,17 +59,14 @@ class TransactionsViewModel(
 
     fun createTracker(name: String, ownerId: String) {
         viewModelScope.launch {
-            trackerUseCase.createTracker(name, ownerId).collect {
-
-            }
+            trackerUseCase.createTracker(name, ownerId).collect {}
         }
     }
 
     fun updateTrackerName(trackerId: String, newName: String) {
         viewModelScope.launch {
-            trackerUseCase.updateTrackerName(trackerId, newName).collect { event->
+            trackerUseCase.updateTrackerName(trackerId, newName).collect { event ->
                 handleTrackerEvent(event)
-
             }
         }
     }
@@ -134,7 +130,11 @@ class TransactionsViewModel(
     // RECEIPTS
     // ------------------------------------------------
 
-    fun observeReceipts(trackerId: String, sourceId: String) {
+    /**
+     * sourceId = null or ""  →  observe ALL receipts across every source in the tracker.
+     * sourceId non-blank     →  observe receipts for that specific source only.
+     */
+    fun observeReceipts(trackerId: String, sourceId: String?) {
         observeReceiptsJob?.cancel()
         observeReceiptsJob = receiptUseCase
             .observeReceipts(trackerId, sourceId)
