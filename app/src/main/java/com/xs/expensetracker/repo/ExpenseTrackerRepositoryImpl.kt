@@ -36,6 +36,26 @@ class ExpenseTrackerRepositoryImpl(
     // TRACKERS
     // ------------------------------------------------
 
+
+    override fun observeTracker(trackerId: String): Flow<Tracker?> = callbackFlow {
+        if (trackerId.isBlank()) {
+            trySend(null)
+            close()
+            return@callbackFlow
+        }
+        val listener = trackersRef.document(trackerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val tracker = snapshot?.toObject(Tracker::class.java)
+                trySend(tracker)
+            }
+        awaitClose { listener.remove() }
+
+    }
+
     override fun observeTrackers(userId: String): Flow<List<Tracker>> = callbackFlow {
         if (userId.isBlank()) {
             trySend(emptyList())
@@ -59,6 +79,9 @@ class ExpenseTrackerRepositoryImpl(
 
         awaitClose { listener.remove() }
     }
+
+
+
 
     override suspend fun createTracker(
         name: String,

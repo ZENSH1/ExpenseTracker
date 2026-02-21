@@ -5,6 +5,7 @@ import com.xs.expensetracker.data.models.TransactionReceipt
 import com.xs.expensetracker.data.models.TransactionSource
 
 data class TransactionsUiState(
+    val selectedTracker: Tracker? = null,
     val trackers: List<Tracker> = emptyList(),
     val sources: List<TransactionSource> = emptyList(),
     val receipts: List<TransactionReceipt> = emptyList(),

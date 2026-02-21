@@ -2,6 +2,7 @@ package com.xs.expensetracker.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.animation.core.copy
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -88,6 +89,7 @@ fun HomeScreen(
     )
 
     LaunchedEffect(trackerId, selectedType) {
+        transactionsViewModel.observeTracker(trackerId)
         transactionsViewModel.observeSources(trackerId, selectedType)
         transactionsViewModel.observeReceipts(trackerId, "")
     }
@@ -145,7 +147,7 @@ fun HomeScreen(
 
                         Column(Modifier.clickable { onProfileClicked() }) {
                             Text(
-                                text = tracker.name,
+                                text = txState.selectedTracker?.name?:"Unknown Tracker",
                                 color = textSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Normal
@@ -205,7 +207,13 @@ fun HomeScreen(
 
                 // ── Grand Total Card ──────────────────────────────────────
                 GrandTotalCard(
-                    grandTotal = tracker.grandTotal.toDouble(),
+                    Modifier
+                    .fillMaxWidth()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(SharedKeys.GRAND_TOTAL_CARD),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        ),
+                    grandTotal = txState.selectedTracker?.grandTotal?.toDouble()?:0.0,
                     currencyFormatter = currencyFormatter
                 )
 
@@ -213,6 +221,10 @@ fun HomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(SharedKeys.TABS_LAYOUT),
+                            animatedVisibilityScope = animatedVisibilityScope,
+                        )
                         .clip(RoundedCornerShape(12.dp))
                         .background(bgCard)
                         .padding(4.dp),
@@ -389,6 +401,7 @@ fun HomeScreen(
 
 @Composable
 private fun GrandTotalCard(
+    modifier: Modifier = Modifier,
     grandTotal: Double,
     currencyFormatter: NumberFormat
 ) {
@@ -400,8 +413,7 @@ private fun GrandTotalCard(
     )
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(
                 Brush.linearGradient(

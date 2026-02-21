@@ -33,9 +33,21 @@ class TransactionsViewModel(
     private var observeSourcesJob: Job? = null
     private var observeReceiptsJob: Job? = null
 
+    private var observeTrackerJob: Job? = null
+
+
     // ------------------------------------------------
     // TRACKERS
     // ------------------------------------------------
+
+    fun observeTracker(trackerId: String){
+        observeTrackersJob?.cancel()
+        observeTrackersJob = trackerUseCase
+            .observeTracker(trackerId)
+            .onEach { tracker -> _uiState.update { it.copy(selectedTracker = tracker) } }
+            .catch { e -> _uiState.update { it.copy(error = e.message) } }
+            .launchIn(viewModelScope)
+    }
 
     fun observeTrackers(userId: String) {
         observeTrackersJob?.cancel()
