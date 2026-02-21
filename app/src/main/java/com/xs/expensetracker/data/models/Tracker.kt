@@ -1,5 +1,9 @@
 package com.xs.expensetracker.data.models
 
+import kotlinx.serialization.Serializable
+
+
+@Serializable
 data class Tracker(
     val id: String = "",
     val name: String = "",

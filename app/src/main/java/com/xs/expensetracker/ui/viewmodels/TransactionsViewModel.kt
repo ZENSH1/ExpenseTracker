@@ -1,24 +1,31 @@
 package com.xs.expensetracker.ui.viewmodels
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.xs.expensetracker.data.enums.TransactionType
 import com.xs.expensetracker.data.models.TransactionReceipt
+import com.xs.expensetracker.data.models.Tracker
 import com.xs.expensetracker.usecases.ReceiptUseCase
 import com.xs.expensetracker.usecases.SourceUseCase
 import com.xs.expensetracker.usecases.TrackerUseCase
+import com.xs.expensetracker.utils.ExportManager
 import com.xs.expensetracker.utils.events.TrackerUiEvent
 import com.xs.expensetracker.utils.events.TransactionUiEvent
 import com.xs.expensetracker.utils.states.TransactionsUiState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TransactionsViewModel(
     private val trackerUseCase: TrackerUseCase,
@@ -40,8 +47,8 @@ class TransactionsViewModel(
     // ------------------------------------------------
 
     fun observeTracker(trackerId: String) {
-        observeTrackersJob?.cancel()
-        observeTrackersJob = trackerUseCase
+        observeTrackerJob?.cancel()
+        observeTrackerJob = trackerUseCase
             .observeTracker(trackerId)
             .onEach { tracker -> _uiState.update { it.copy(selectedTracker = tracker) } }
             .catch { e -> _uiState.update { it.copy(error = e.message) } }
@@ -189,4 +196,40 @@ class TransactionsViewModel(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+    fun clearAllObservers(){
+        observeTrackersJob?.cancel()
+        observeSourcesJob?.cancel()
+        observeReceiptsJob?.cancel()
+    }
+
+    // ------------------------------------------------
+    // EXPORT
+    // ------------------------------------------------
+
+    /**
+     * Collect ALL sources + receipts for the tracker (regardless of active
+     * type filter), then generate a CSV in the app's cache directory.
+     * Returns a FileProvider URI the caller can use for ACTION_SEND, or
+     * null if generation fails.
+     */
+    suspend fun exportToCsv(context: Context, tracker: Tracker): Uri? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val allSources  = sourceUseCase.observeSources(tracker.id, null).first()
+                val allReceipts = receiptUseCase.observeReceipts(tracker.id, null).first()
+                ExportManager.exportToCsv(context.applicationContext, tracker, allSources, allReceipts)
+            }.getOrNull()
+        }
+
+    /**
+     * Same as above but produces a PDF.
+     */
+    suspend fun exportToPdf(context: Context, tracker: Tracker): Uri? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val allSources  = sourceUseCase.observeSources(tracker.id, null).first()
+                val allReceipts = receiptUseCase.observeReceipts(tracker.id, null).first()
+                ExportManager.exportToPdf(context.applicationContext, tracker, allSources, allReceipts)
+            }.getOrNull()
+        }
 }
