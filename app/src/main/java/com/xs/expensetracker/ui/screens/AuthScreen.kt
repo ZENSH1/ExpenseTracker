@@ -222,7 +222,7 @@ fun AuthScreen(
                                 strokeWidth = 2.dp
                             )
                             Text(
-                                "Signing in...",
+                                (state as? AuthUiState.Loading)?.message?:"Loading...",
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 15.sp
                             )
@@ -286,11 +286,3 @@ fun AuthScreen(
     }
 }
 
-
-@Preview
-@Composable
-fun PreviewGoogle(){
-    PreviewScreens {
-        GoogleGLogo()
-    }
-}
