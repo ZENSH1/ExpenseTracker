@@ -1,4 +1,4 @@
-package com.xs.expensetracker.repo
+package com.xs.expensetracker.domain.repo
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser

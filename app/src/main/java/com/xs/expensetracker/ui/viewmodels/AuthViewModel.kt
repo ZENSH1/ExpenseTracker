@@ -3,11 +3,8 @@ package com.xs.expensetracker.ui.viewmodels
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xs.expensetracker.repo.AuthRepository
 import com.xs.expensetracker.usecases.AuthUseCase
 import com.xs.expensetracker.utils.states.AuthUiState
-import com.xs.expensetracker.utils.GoogleAuthManager
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

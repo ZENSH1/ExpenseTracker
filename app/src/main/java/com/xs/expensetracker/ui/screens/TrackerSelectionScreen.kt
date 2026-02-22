@@ -22,7 +22,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import com.xs.expensetracker.data.models.Tracker
+import com.xs.expensetracker.domain.data.models.Tracker
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel

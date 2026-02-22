@@ -1,8 +1,8 @@
 package com.xs.expensetracker.usecases
 
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.TransactionSource
-import com.xs.expensetracker.repo.ExpenseTrackerRepository
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.TransactionSource
+import com.xs.expensetracker.domain.repo.ExpenseTrackerRepository
 import com.xs.expensetracker.utils.AppLogger
 import com.xs.expensetracker.utils.events.TransactionUiEvent
 import kotlinx.coroutines.flow.Flow
