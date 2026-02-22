@@ -4,9 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.data.models.Tracker
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.Tracker
 import com.xs.expensetracker.usecases.ReceiptUseCase
 import com.xs.expensetracker.usecases.SourceUseCase
 import com.xs.expensetracker.usecases.TrackerUseCase

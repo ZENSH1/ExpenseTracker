@@ -1,30 +1,15 @@
 package com.xs.expensetracker.ui.components.reusables
 
-import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.*
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.ui.theme.accentPurple
-import com.xs.expensetracker.ui.theme.bgCard
-import com.xs.expensetracker.ui.theme.bgDark
-import com.xs.expensetracker.ui.theme.expenseColor
-import com.xs.expensetracker.ui.theme.incomeColor
-import com.xs.expensetracker.ui.theme.textPrimary
-import com.xs.expensetracker.ui.theme.textSecondary
-import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
-import java.text.SimpleDateFormat
-import java.util.*
 
 
 @Composable

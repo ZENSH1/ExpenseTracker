@@ -1,7 +1,7 @@
 package com.xs.expensetracker.utils.sealed
 
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.Tracker
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.Tracker
 import kotlinx.serialization.Serializable
 import androidx.navigation3.runtime.NavKey
 

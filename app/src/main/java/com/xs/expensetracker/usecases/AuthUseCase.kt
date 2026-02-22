@@ -1,7 +1,7 @@
 package com.xs.expensetracker.usecases
 
 import android.app.Activity
-import com.xs.expensetracker.repo.AuthRepository
+import com.xs.expensetracker.domain.repo.AuthRepository
 import com.xs.expensetracker.utils.GoogleAuthManager
 import com.xs.expensetracker.utils.states.AuthUiState
 import kotlinx.coroutines.flow.Flow

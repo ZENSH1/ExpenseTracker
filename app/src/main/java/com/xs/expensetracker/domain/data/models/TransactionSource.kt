@@ -1,6 +1,6 @@
-package com.xs.expensetracker.data.models
+package com.xs.expensetracker.domain.data.models
 
-import com.xs.expensetracker.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.enums.TransactionType
 
 data class TransactionSource(
     val id: String = "",

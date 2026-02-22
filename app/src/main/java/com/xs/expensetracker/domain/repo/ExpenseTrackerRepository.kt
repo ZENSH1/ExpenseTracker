@@ -1,9 +1,9 @@
-package com.xs.expensetracker.repo
+package com.xs.expensetracker.domain.repo
 
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.Tracker
-import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.data.models.TransactionSource
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.TransactionSource
 import kotlinx.coroutines.flow.Flow
 
 interface ExpenseTrackerRepository {
