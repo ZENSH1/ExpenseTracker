@@ -18,3 +18,5 @@ app/google-services.json
 .externalNativeBuild
 .cxx
 local.properties
+/.claude/worktrees/interesting-brahmagupta/
+/.claude/*
