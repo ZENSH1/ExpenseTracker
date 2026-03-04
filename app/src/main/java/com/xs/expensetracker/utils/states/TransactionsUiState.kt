@@ -1,8 +1,8 @@
 package com.xs.expensetracker.utils.states
 
-import com.xs.expensetracker.data.models.Tracker
-import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.data.models.TransactionSource
+import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.TransactionSource
 
 data class TransactionsUiState(
     val selectedTracker: Tracker? = null,

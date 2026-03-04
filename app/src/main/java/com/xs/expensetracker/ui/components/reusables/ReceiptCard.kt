@@ -32,8 +32,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.ui.theme.accentPurple
 import com.xs.expensetracker.ui.theme.bgCard
 import com.xs.expensetracker.ui.theme.expenseColor

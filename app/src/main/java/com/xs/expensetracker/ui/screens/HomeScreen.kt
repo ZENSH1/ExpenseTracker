@@ -3,7 +3,6 @@ package com.xs.expensetracker.ui.screens
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.animation.core.copy
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -26,8 +25,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.Tracker
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.Tracker
 import com.xs.expensetracker.ui.components.modals.AddReceiptModal
 import com.xs.expensetracker.ui.components.modals.AddSourceModal
 import com.xs.expensetracker.ui.components.reusables.NavCard

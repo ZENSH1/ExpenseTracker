@@ -1,6 +1,5 @@
 package com.xs.expensetracker.ui.components.modals
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
@@ -17,7 +16,7 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.*
-import com.xs.expensetracker.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.enums.TransactionType
 import com.xs.expensetracker.ui.theme.bgCard
 import com.xs.expensetracker.ui.theme.bgDark
 import com.xs.expensetracker.ui.theme.expenseColor

@@ -1,4 +1,4 @@
-package com.xs.expensetracker.data.models
+package com.xs.expensetracker.domain.data.models
 
 import kotlinx.serialization.Serializable
 

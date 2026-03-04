@@ -26,13 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.TransactionSource
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.TransactionSource
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
-import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -347,7 +347,8 @@ fun SourcesScreen(
                                 )
                             }
                         }
-                    } else {LazyColumn(
+                    } else {
+                        LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
@@ -568,7 +569,8 @@ private fun SourceFormModal(
                     if (name.isNotBlank()) {
                         if (isEditing) {
                             transactionsViewModel.updateReceipt(trackerId, editingSource!!.id,
-                                com.xs.expensetracker.data.models.TransactionReceipt()) // placeholder — see note
+                                TransactionReceipt()
+                            ) // placeholder — see note
                         } else {
                             transactionsViewModel.createSource(trackerId, name.trim(), selectedType)
                         }

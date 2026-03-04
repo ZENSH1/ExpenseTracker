@@ -1,7 +1,7 @@
 package com.xs.expensetracker.usecases
 
-import com.xs.expensetracker.data.models.Tracker
-import com.xs.expensetracker.repo.ExpenseTrackerRepository
+import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.domain.repo.ExpenseTrackerRepository
 import com.xs.expensetracker.utils.AppLogger
 import com.xs.expensetracker.utils.events.TrackerUiEvent
 import kotlinx.coroutines.flow.Flow

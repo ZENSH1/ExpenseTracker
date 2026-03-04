@@ -5,10 +5,10 @@ import android.graphics.*
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.Tracker
-import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.data.models.TransactionSource
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.TransactionSource
 import java.io.File
 import java.io.FileOutputStream
 import java.io.FileWriter

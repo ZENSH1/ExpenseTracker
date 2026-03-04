@@ -4,9 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.xs.expensetracker.data.enums.TransactionType
-import com.xs.expensetracker.data.models.TransactionReceipt
-import com.xs.expensetracker.data.models.Tracker
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
+import com.xs.expensetracker.domain.data.models.Tracker
 import com.xs.expensetracker.usecases.ReceiptUseCase
 import com.xs.expensetracker.usecases.SourceUseCase
 import com.xs.expensetracker.usecases.TrackerUseCase
@@ -48,6 +48,7 @@ class TransactionsViewModel(
 
     fun observeTracker(trackerId: String) {
         observeTrackerJob?.cancel()
+        _uiState.update { it.copy(selectedTracker = null) }
         observeTrackerJob = trackerUseCase
             .observeTracker(trackerId)
             .onEach { tracker -> _uiState.update { it.copy(selectedTracker = tracker) } }
@@ -110,6 +111,7 @@ class TransactionsViewModel(
 
     fun observeSources(trackerId: String, type: TransactionType? = null) {
         observeSourcesJob?.cancel()
+        _uiState.update { it.copy(sources = emptyList()) }
         observeSourcesJob = sourceUseCase
             .observeSources(trackerId, type)
             .onEach { sources -> _uiState.update { it.copy(sources = sources) } }
@@ -143,6 +145,7 @@ class TransactionsViewModel(
      */
     fun observeReceipts(trackerId: String, sourceId: String?) {
         observeReceiptsJob?.cancel()
+        _uiState.update { it.copy(receipts = emptyList()) }
         observeReceiptsJob = receiptUseCase
             .observeReceipts(trackerId, sourceId)
             .onEach { receipts -> _uiState.update { it.copy(receipts = receipts) } }
