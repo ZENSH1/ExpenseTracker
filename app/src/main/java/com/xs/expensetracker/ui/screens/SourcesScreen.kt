@@ -347,7 +347,8 @@ fun SourcesScreen(
                                 )
                             }
                         }
-                    } else {LazyColumn(
+                    } else {
+                        LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 32.dp)
                     ) {
