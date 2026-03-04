@@ -19,12 +19,10 @@ import com.xs.expensetracker.utils.FirebaseConst.TOTAL_AMOUNT
 import com.xs.expensetracker.utils.FirebaseConst.TRACKERS
 import com.xs.expensetracker.utils.FirebaseConst.TRACK_NAME_CANNOT_BE_EMPTY
 import com.xs.expensetracker.utils.Utils.runInBackground
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
 
 class ExpenseTrackerRepositoryImpl(
     private val firestore: FirebaseFirestore,
@@ -49,8 +47,7 @@ class ExpenseTrackerRepositoryImpl(
                     close(error)
                     return@addSnapshotListener
                 }
-                val tracker = snapshot?.toObject(Tracker::class.java)
-                trySend(tracker)
+                trySend(snapshot?.toObject(Tracker::class.java))
             }
         awaitClose { listener.remove() }
     }
@@ -61,7 +58,6 @@ class ExpenseTrackerRepositoryImpl(
             close()
             return@callbackFlow
         }
-
         val listener = trackersRef
             .whereArrayContainsAny(SHARED_WITH, listOf(userId))
             .orderBy(FirebaseConst.CREATED_AT, Query.Direction.DESCENDING)
@@ -75,7 +71,6 @@ class ExpenseTrackerRepositoryImpl(
                     ?: emptyList()
                 trySend(trackers)
             }
-
         awaitClose { listener.remove() }
     }
 
@@ -83,7 +78,7 @@ class ExpenseTrackerRepositoryImpl(
         name: String,
         ownerId: String
     ): Result<String> = runCatching {
-        runInBackground{
+        runInBackground {
             require(name.isNotBlank()) { TRACK_NAME_CANNOT_BE_EMPTY }
             require(ownerId.isNotBlank()) { OWNER_ID_MISSING }
 
@@ -138,8 +133,10 @@ class ExpenseTrackerRepositoryImpl(
     }
 
     override suspend fun deleteTracker(trackerId: String): Result<Unit> = runCatching {
-        require(trackerId.isNotBlank())
-        trackersRef.document(trackerId).delete().await()
+        runInBackground {
+            require(trackerId.isNotBlank())
+            trackersRef.document(trackerId).delete().await()
+        }
     }
 
     // ------------------------------------------------
@@ -150,34 +147,31 @@ class ExpenseTrackerRepositoryImpl(
         trackerId: String,
         type: TransactionType?
     ): Flow<List<TransactionSource>> = callbackFlow {
-        runInBackground{
-            if (trackerId.isBlank()) {
-                trySend(emptyList())
-                close()
-                return@runInBackground
-            }
-
-            var query: Query = trackersRef
-                .document(trackerId)
-                .collection(SOURCES)
-
-            if (type != null) {
-                query = query.whereEqualTo(FirebaseConst.TYPE, type.name)
-            }
-
-            val listener = query.addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    close(error)
-                    return@addSnapshotListener
-                }
-                val sources = snapshot?.documents
-                    ?.mapNotNull { it.toObject(TransactionSource::class.java)?.copy(id = it.id) }
-                    ?: emptyList()
-                trySend(sources)
-            }
-            awaitClose { listener.remove() }
-
+        if (trackerId.isBlank()) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
         }
+
+        var query: Query = trackersRef
+            .document(trackerId)
+            .collection(SOURCES)
+
+        if (type != null) {
+            query = query.whereEqualTo(FirebaseConst.TYPE, type.name)
+        }
+
+        val listener = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            val sources = snapshot?.documents
+                ?.mapNotNull { it.toObject(TransactionSource::class.java)?.copy(id = it.id) }
+                ?: emptyList()
+            trySend(sources)
+        }
+        awaitClose { listener.remove() }
     }
 
     override suspend fun createSource(
@@ -185,7 +179,7 @@ class ExpenseTrackerRepositoryImpl(
         name: String,
         type: TransactionType
     ): Result<String> = runCatching {
-        runInBackground{
+        runInBackground {
             require(trackerId.isNotBlank())
             require(name.isNotBlank())
 
@@ -210,7 +204,7 @@ class ExpenseTrackerRepositoryImpl(
         trackerId: String,
         sourceId: String
     ): Result<Unit> = runCatching {
-        runInBackground{
+        runInBackground {
             require(trackerId.isNotBlank())
             require(sourceId.isNotBlank())
 
@@ -227,60 +221,49 @@ class ExpenseTrackerRepositoryImpl(
     // RECEIPTS
     // ------------------------------------------------
 
-    /**
-     * sourceId == null or blank  →  collection-group query across ALL sources in this tracker.
-     *                               Requires a Firestore collection-group index on `trackerId` + `date`.
-     * sourceId non-blank         →  scoped query for that specific source only.
-     */
     override fun observeReceipts(
         trackerId: String,
         sourceId: String?
     ): Flow<List<TransactionReceipt>> = callbackFlow {
-        runInBackground{
-            if (trackerId.isBlank()) {
-                trySend(emptyList())
-                close()
-                return@runInBackground
-            }
-
-            val listener = if (sourceId.isNullOrBlank()) {
-                // ── All sources: collection-group query filtered by trackerId ──────
-                firestore.collectionGroup(RECEIPTS)
-                    .whereEqualTo("trackerId", trackerId)
-                    .orderBy(DATE, Query.Direction.DESCENDING)
-                    .addSnapshotListener { snapshot, error ->
-                        if (error != null) {
-                            close(error); return@addSnapshotListener
-                        }
-                        val receipts = snapshot?.documents
-                            ?.mapNotNull {
-                                it.toObject(TransactionReceipt::class.java)?.copy(id = it.id)
-                            }
-                            ?: emptyList()
-                        trySend(receipts)
-                    }
-            } else {
-                // ── Specific source ───────────────────────────────────────────────
-                trackersRef
-                    .document(trackerId)
-                    .collection(SOURCES)
-                    .document(sourceId)
-                    .collection(RECEIPTS)
-                    .orderBy(DATE, Query.Direction.DESCENDING)
-                    .addSnapshotListener { snapshot, error ->
-                        if (error != null) {
-                            close(error); return@addSnapshotListener
-                        }
-                        val receipts = snapshot?.documents
-                            ?.mapNotNull {
-                                it.toObject(TransactionReceipt::class.java)?.copy(id = it.id)
-                            }
-                            ?: emptyList()
-                        trySend(receipts)
-                    }
-            }
-            awaitClose { listener.remove() }
+        if (trackerId.isBlank()) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
         }
+
+        val listener = if (sourceId.isNullOrBlank()) {
+            firestore.collectionGroup(RECEIPTS)
+                .whereEqualTo("trackerId", trackerId)
+                .orderBy(DATE, Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    val receipts = snapshot?.documents
+                        ?.mapNotNull { it.toObject(TransactionReceipt::class.java)?.copy(id = it.id) }
+                        ?: emptyList()
+                    trySend(receipts)
+                }
+        } else {
+            trackersRef
+                .document(trackerId)
+                .collection(SOURCES)
+                .document(sourceId)
+                .collection(RECEIPTS)
+                .orderBy(DATE, Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    val receipts = snapshot?.documents
+                        ?.mapNotNull { it.toObject(TransactionReceipt::class.java)?.copy(id = it.id) }
+                        ?: emptyList()
+                    trySend(receipts)
+                }
+        }
+        awaitClose { listener.remove() }
     }
 
     override suspend fun addReceipt(
@@ -292,7 +275,7 @@ class ExpenseTrackerRepositoryImpl(
         amount: Double,
         date: Long
     ): Result<String> = runCatching {
-        runInBackground{
+        runInBackground {
             require(amount > 0.0) { "Amount must be greater than zero" }
             require(name.isNotBlank()) { "Receipt name cannot be empty" }
 
@@ -300,7 +283,6 @@ class ExpenseTrackerRepositoryImpl(
             val sourceRef = trackerRef.collection(SOURCES).document(sourceId)
             val receiptRef = sourceRef.collection(RECEIPTS).document()
 
-            // Positive for INCOME, negative for EXPENSE
             val signedAmount = if (type == TransactionType.INCOME) amount else -amount
 
             firestore.runTransaction { transaction ->
@@ -336,36 +318,36 @@ class ExpenseTrackerRepositoryImpl(
         sourceId: String,
         receipt: TransactionReceipt
     ): Result<Unit> = runCatching {
-        val trackerRef = trackersRef.document(trackerId)
-        val sourceRef = trackerRef.collection(SOURCES).document(sourceId)
-        val receiptRef = sourceRef.collection(RECEIPTS).document(receipt.id)
+        runInBackground {
+            val trackerRef = trackersRef.document(trackerId)
+            val sourceRef = trackerRef.collection(SOURCES).document(sourceId)
+            val receiptRef = sourceRef.collection(RECEIPTS).document(receipt.id)
 
-        firestore.runTransaction { transaction ->
-            val oldSnap = transaction.get(receiptRef)
-            if (!oldSnap.exists()) throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
+            firestore.runTransaction { transaction ->
+                val oldSnap = transaction.get(receiptRef)
+                if (!oldSnap.exists()) throw IllegalStateException(FirebaseConst.RECEIPT_NOT_FOUND)
 
-            val oldAmount = oldSnap.getDouble(AMOUNT) ?: 0.0
-            val oldTypeStr = oldSnap.getString(FirebaseConst.TYPE)
-            val oldType =
-                oldTypeStr?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                val oldAmount = oldSnap.getDouble(AMOUNT) ?: 0.0
+                val oldType = oldSnap.getString(FirebaseConst.TYPE)
+                    ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
 
-            val sourceSnap = transaction.get(sourceRef)
-            val trackerSnap = transaction.get(trackerRef)
+                val sourceSnap = transaction.get(sourceRef)
+                val trackerSnap = transaction.get(trackerRef)
 
-            val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
-            val currentGrand = trackerSnap.getDouble(GRAND_TOTAL) ?: 0.0
+                val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
+                val currentGrand = trackerSnap.getDouble(GRAND_TOTAL) ?: 0.0
 
-            val sourceDelta = receipt.amount - oldAmount
+                val sourceDelta = receipt.amount - oldAmount
 
-            val oldSigned = if (oldType == TransactionType.INCOME) oldAmount else -oldAmount
-            val newSigned =
-                if (receipt.type == TransactionType.INCOME) receipt.amount else -receipt.amount
-            val grandDelta = newSigned - oldSigned
+                val oldSigned = if (oldType == TransactionType.INCOME) oldAmount else -oldAmount
+                val newSigned = if (receipt.type == TransactionType.INCOME) receipt.amount else -receipt.amount
+                val grandDelta = newSigned - oldSigned
 
-            transaction.set(receiptRef, receipt)
-            transaction.update(sourceRef, TOTAL_AMOUNT, currentTotal + sourceDelta)
-            transaction.update(trackerRef, GRAND_TOTAL, currentGrand + grandDelta)
-        }.await()
+                transaction.set(receiptRef, receipt)
+                transaction.update(sourceRef, TOTAL_AMOUNT, currentTotal + sourceDelta)
+                transaction.update(trackerRef, GRAND_TOTAL, currentGrand + grandDelta)
+            }.await()
+        }
     }
 
     override suspend fun deleteReceipt(
@@ -373,7 +355,7 @@ class ExpenseTrackerRepositoryImpl(
         sourceId: String,
         receiptId: String
     ): Result<Unit> = runCatching {
-        withContext(Dispatchers.IO) {
+        runInBackground {
             val trackerRef = trackersRef.document(trackerId)
             val sourceRef = trackerRef.collection(SOURCES).document(sourceId)
             val receiptRef = sourceRef.collection(RECEIPTS).document(receiptId)
@@ -386,19 +368,15 @@ class ExpenseTrackerRepositoryImpl(
                 val trackerSnap = transaction.get(trackerRef)
 
                 val amount = receiptSnap.getDouble(AMOUNT) ?: 0.0
-                val typeStr = receiptSnap.getString(FirebaseConst.TYPE)
-                val type = typeStr?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
+                val type = receiptSnap.getString(FirebaseConst.TYPE)
+                    ?.let { runCatching { TransactionType.valueOf(it) }.getOrNull() }
                 val signedAmount = if (type == TransactionType.INCOME) amount else -amount
 
                 val currentTotal = sourceSnap.getDouble(TOTAL_AMOUNT) ?: 0.0
                 val currentGrand = trackerSnap.getDouble(GRAND_TOTAL) ?: 0.0
 
                 transaction.delete(receiptRef)
-                transaction.update(
-                    sourceRef,
-                    TOTAL_AMOUNT,
-                    (currentTotal - amount).coerceAtLeast(0.0)
-                )
+                transaction.update(sourceRef, TOTAL_AMOUNT, (currentTotal - amount).coerceAtLeast(0.0))
                 transaction.update(trackerRef, GRAND_TOTAL, currentGrand - signedAmount)
             }.await()
         }
