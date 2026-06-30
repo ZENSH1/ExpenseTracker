@@ -1,11 +1,9 @@
 package com.xs.expensetracker.utils
 
 import android.app.Activity
-import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.auth.FirebaseAuth
@@ -18,19 +16,11 @@ class GoogleAuthManager(
     suspend fun signIn(activity: Activity): Result<String> {
         return try {
             val credentialManager = CredentialManager.create(activity)
-
-           /* val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(AppConst.GOOGLE_WEB_CLIENT_ID)
-                .setAutoSelectEnabled(false)
-                .build()*/
-
             val signInWithGoogleOption = GetSignInWithGoogleOption
                 .Builder(AppConst.GOOGLE_WEB_CLIENT_ID)
                 .build()
 
             val request = GetCredentialRequest.Builder()
-              //  .addCredentialOption(googleIdOption)
                 .addCredentialOption(signInWithGoogleOption) // <-- add this
                 .build()
 
