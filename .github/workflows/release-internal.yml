@@ -1,0 +1,70 @@
+name: Release to Play Internal Testing
+
+# Cut a release by pushing a version tag, e.g.:
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Never run two releases at once (avoids duplicate uploads).
+concurrency:
+  group: release-internal
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build & publish (internal)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    env:
+      # versionCode = VERSION_CODE_BASE + workflow run number, so it always increases.
+      # Keep this comfortably above the highest versionCode already on Play.
+      VERSION_CODE_BASE: 1000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compute version
+        run: |
+          TAG="${GITHUB_REF_NAME}"                 # e.g. v0.1.0
+          echo "VERSION_NAME=${TAG#v}"        >> "$GITHUB_ENV"   # -> 0.1.0
+          echo "VERSION_CODE=$(( VERSION_CODE_BASE + GITHUB_RUN_NUMBER ))" >> "$GITHUB_ENV"
+
+      - name: Restore google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 -d > app/google-services.json
+
+      - name: Restore release keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build release AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Publish to Play Console (internal track)
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.xs.expensetracker
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          mappingFile: app/build/outputs/mapping/release/mapping.txt
