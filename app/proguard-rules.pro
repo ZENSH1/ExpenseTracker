@@ -31,10 +31,9 @@
 
 # ---------------- Google Identity ----------------
 -keep class com.google.android.libraries.identity.** { *; }
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ---------------- Crash reporting ----------------
+# Keep line numbers so Crashlytics stack traces are readable, but hide the
+# original file names. mapping.txt is uploaded with every release so traces
+# still deobfuscate.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile

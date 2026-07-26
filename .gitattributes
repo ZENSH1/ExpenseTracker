@@ -1,0 +1,23 @@
+# Line endings are normalised in the repository regardless of each
+# developer's core.autocrlf setting. CRLF in a shell script or in a workflow's
+# `run:` block breaks the Linux CI runners ("$'\r': command not found"), so the
+# files those runners execute are pinned to LF explicitly.
+* text=auto
+
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+gradlew text eol=lf
+*.pro   text eol=lf
+
+# Windows-only launcher keeps CRLF.
+*.bat   text eol=crlf
+
+# Never apply line-ending conversion to binaries.
+*.jar      binary
+*.aab      binary
+*.apk      binary
+*.jks      binary
+*.keystore binary
+*.png      binary
+*.webp     binary
