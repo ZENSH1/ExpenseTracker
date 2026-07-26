@@ -11,7 +11,6 @@ import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.domain.data.models.TransactionSource
 import java.io.File
 import java.io.FileOutputStream
-import java.io.FileWriter
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -58,7 +57,10 @@ object ExportManager {
         val safeName   = tracker.name.replace(Regex("[^A-Za-z0-9_\\-]"), "_")
         val file       = File(context.cacheDir, "${safeName}_$timestamp.csv")
 
-        FileWriter(file, Charsets.UTF_8).use { w ->
+        // FileWriter(File, Charset) is API 33+; minSdk is 24, so it would throw
+        // NoSuchMethodError on anything below Android 13. bufferedWriter wraps
+        // OutputStreamWriter and is available on every supported level.
+        file.bufferedWriter(Charsets.UTF_8).use { w ->
             // UTF-8 BOM so Excel opens correctly
             w.append("\uFEFF")
 
