@@ -207,9 +207,12 @@ jobs:
             -alias "${alias}" > /dev/null
           echo "Keystore opened; alias '${alias}' present."
 
+      # `test` covers whatever unit test variants exist. This project only has
+      # testDebugUnitTest — there is no release-variant unit test task — so
+      # naming the release task directly fails the build.
       - name: Unit tests
         shell: bash
-        run: ./gradlew testReleaseUnitTest
+        run: ./gradlew test
 
       - name: Build release AAB
         env:
