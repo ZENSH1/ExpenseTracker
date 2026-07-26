@@ -98,19 +98,28 @@ jobs:
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
 
-          if ! [[ "${VERSION_NAME}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "::error::Version '${VERSION_NAME}' is not MAJOR.MINOR.PATCH."
-            echo "Tags must look like v1.2.3 — pre-release suffixes are not supported."
+          if ! [[ "${VERSION_NAME}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version '${VERSION_NAME}' is not MAJOR.MINOR.PATCH[-PRERELEASE]."
+            echo "Valid examples: v1.2.3, v1.2.3-alpha, v1.2.3-rc.1"
             exit 1
           fi
 
           MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; PATCH="${BASH_REMATCH[3]}"
+          PRERELEASE="${BASH_REMATCH[4]:-}"
           if [ "${MINOR}" -gt 999 ] || [ "${PATCH}" -gt 999 ]; then
             echo "::error::MINOR and PATCH must each be <= 999 (got ${MINOR}.${PATCH})."
             exit 1
           fi
 
+          # versionName keeps the pre-release suffix (Play accepts any string);
+          # versionCode is numeric-only, so it ignores it.
           VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
+
+          if [ -n "${PRERELEASE}" ]; then
+            echo "::warning::'${VERSION_NAME}' is a pre-release, but versionCode ${VERSION_CODE} \
+          comes from ${MAJOR}.${MINOR}.${PATCH} alone. Publishing v${MAJOR}.${MINOR}.${PATCH} later \
+          would reuse that code and Play would reject it — bump the patch for the final build."
+          fi
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "Releasing ${VERSION_NAME} (versionCode ${VERSION_CODE}), dry_run=${DRY_RUN}"
