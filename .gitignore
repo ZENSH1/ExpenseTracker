@@ -11,8 +11,20 @@
 /.kotlin/*
 /.gradle/*
 app/release/*
-app/google-services.json
 .DS_Store
+
+# ---- Secrets: never commit these, they live in GitHub Actions secrets ----
+# See .github/workflows/release-internal.yml for how CI restores them.
+app/google-services.json
+**/AppConst.kt
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
+*.p12
+service-account*.json
+play-service-account*.json
+
 /build
 /captures
 .externalNativeBuild

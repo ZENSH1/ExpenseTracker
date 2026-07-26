@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+# A newer push to the same branch supersedes an in-flight check.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Matches the daemon JVM criteria pinned in gradle/gradle-daemon-jvm.properties.
+      - name: Set up JetBrains Runtime 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: jetbrains
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # This repository is public, so pull requests from forks run without access
+      # to secrets. Rather than fail those checks, fall back to a structurally
+      # valid placeholder — a debug build only needs the file to parse, not to
+      # point at a real Firebase project.
+      - name: Restore google-services.json
+        env:
+          GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
+            # tr strips a possible trailing CR; GNU base64 rejects it as invalid.
+            printf '%s' "${GOOGLE_SERVICES_JSON_BASE64}" | tr -d '[:space:]' \
+              | base64 --decode > app/google-services.json
+            jq empty app/google-services.json
+            echo "Using the real google-services.json."
+          else
+            echo "::notice::No secret access (fork PR) — using a placeholder google-services.json."
+            cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "ci-placeholder",
+              "storage_bucket": "ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": { "package_name": "com.xs.expensetracker" }
+                },
+                "oauth_client": [],
+                "api_key": [ { "current_key": "AIzaSyCIplaceholderCIplaceholderCIplace0" } ],
+                "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+          fi
+
+      - name: Restore AppConst.kt
+        env:
+          APP_CONST_KT_BASE64: ${{ secrets.APP_CONST_KT_BASE64 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          dest="app/src/main/java/com/xs/expensetracker/utils/AppConst.kt"
+          mkdir -p "$(dirname "${dest}")"
+          if [ -n "${APP_CONST_KT_BASE64:-}" ]; then
+            printf '%s' "${APP_CONST_KT_BASE64}" | tr -d '[:space:]' | base64 --decode > "${dest}"
+          else
+            echo "::notice::No secret access (fork PR) — using a placeholder AppConst.kt."
+            cat > "${dest}" <<'KOTLIN'
+          package com.xs.expensetracker.utils
+
+          object AppConst {
+              const val GOOGLE_WEB_CLIENT_ID = "000000000000-ciplaceholder.apps.googleusercontent.com"
+          }
+          KOTLIN
+          fi
+
+      - name: Assemble debug
+        run: ./gradlew assembleDebug
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-reports
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            app/build/reports/tests/**
+            app/build/reports/lint-results-*.html
+            app/build/reports/lint-results-*.xml
+
+      - name: Scrub restored secrets
+        if: always()
+        shell: bash
+        run: |
+          rm -f app/google-services.json \
+                app/src/main/java/com/xs/expensetracker/utils/AppConst.kt
