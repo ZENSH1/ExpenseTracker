@@ -22,11 +22,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Matches the daemon JVM criteria pinned in gradle/gradle-daemon-jvm.properties.
       - name: Set up JetBrains Runtime 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: jetbrains
           java-version: '21'
@@ -35,7 +35,7 @@ jobs:
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # This repository is public, so pull requests from forks run without access
       # to secrets. Rather than fail those checks, fall back to a structurally
@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "${GOOGLE_SERVICES_JSON_BASE64:-}" ]; then
-            printf '%s' "${GOOGLE_SERVICES_JSON_BASE64}" | base64 --decode > app/google-services.json
+            # tr strips a possible trailing CR; GNU base64 rejects it as invalid.
+            printf '%s' "${GOOGLE_SERVICES_JSON_BASE64}" | tr -d '[:space:]' \
+              | base64 --decode > app/google-services.json
             jq empty app/google-services.json
             echo "Using the real google-services.json."
           else
@@ -85,7 +87,7 @@ jobs:
           dest="app/src/main/java/com/xs/expensetracker/utils/AppConst.kt"
           mkdir -p "$(dirname "${dest}")"
           if [ -n "${APP_CONST_KT_BASE64:-}" ]; then
-            printf '%s' "${APP_CONST_KT_BASE64}" | base64 --decode > "${dest}"
+            printf '%s' "${APP_CONST_KT_BASE64}" | tr -d '[:space:]' | base64 --decode > "${dest}"
           else
             echo "::notice::No secret access (fork PR) — using a placeholder AppConst.kt."
             cat > "${dest}" <<'KOTLIN'
@@ -108,7 +110,7 @@ jobs:
 
       - name: Upload reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ci-reports
           retention-days: 7
