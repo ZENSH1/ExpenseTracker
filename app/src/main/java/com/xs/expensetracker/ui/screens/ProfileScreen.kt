@@ -22,8 +22,10 @@ import androidx.compose.ui.unit.*
 import com.xs.expensetracker.ui.components.reusables.ActionButton
 import com.xs.expensetracker.ui.components.reusables.InfoRow
 import com.xs.expensetracker.ui.components.reusables.SectionLabel
+import com.xs.expensetracker.ui.components.reusables.SyncStatusIndicator
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.ui.viewmodels.SyncViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
 import org.koin.androidx.compose.koinViewModel
@@ -36,17 +38,22 @@ fun ProfileScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
-    onLogout: () -> Unit,
+    syncViewModel: SyncViewModel = koinViewModel(),
+    onSignedOut: () -> Unit,
+    onSignIn: () -> Unit,
+    onOpenSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val state by authViewModel.uiState.collectAsState()
+    val syncState by syncViewModel.state.collectAsState()
     val user = (state as? AuthUiState.Authenticated)?.user
 
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteConfirmText by remember { mutableStateOf("") }
 
-    // Logout confirmation
+    // Logout confirmation. Worded to match what actually happens now: local data survives, and
+    // the user is not locked out of anything by signing out.
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -54,12 +61,21 @@ fun ProfileScreen(
             titleContentColor = textPrimary,
             textContentColor = textSecondary,
             title = { Text("Sign Out?", fontWeight = FontWeight.Bold) },
-            text = { Text("You'll need to sign in again to access your data.") },
+            text = {
+                Text(
+                    "Your data stays on this device and the app keeps working offline. " +
+                        "Syncing pauses until you sign in again." +
+                        if (syncState.pendingCount > 0) {
+                            "\n\n${syncState.pendingCount} change(s) haven't reached the cloud yet — " +
+                                "they'll sync when you sign back in."
+                        } else ""
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false
                     authViewModel.signOut()
-                    onLogout()
+                    onSignedOut()
                 }) { Text("Sign Out", color = expenseColor, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
@@ -113,8 +129,10 @@ fun ProfileScreen(
                     onClick = {
                         showDeleteDialog = false
                         deleteConfirmText = ""
+                        // Deliberately does not navigate away: deletion removes cloud data
+                        // first and can fail (for example when Firebase demands a fresh
+                        // credential). The screen stays put so the error is visible.
                         authViewModel.deleteAccount()
-                        onLogout()
                     },
                     enabled = deleteConfirmText == "DELETE"
                 ) {
@@ -168,6 +186,13 @@ fun ProfileScreen(
                                     tint = textPrimary
                                 )
                             }
+                        },
+                        actions = {
+                            SyncStatusIndicator(
+                                status = syncState.status,
+                                modifier = Modifier.padding(end = 12.dp),
+                                onClick = onOpenSettings
+                            )
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
                     )
@@ -368,28 +393,64 @@ fun ProfileScreen(
                         resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                     ))
 
-                    // Sign out
                     ActionButton(
-                        icon = Icons.AutoMirrored.Filled.Logout,
-                        label = "Sign Out",
-                        sublabel = "You can sign back in anytime",
+                        icon = Icons.Filled.CloudSync,
+                        label = "Sync & Settings",
+                        sublabel = "Manual sync, import and export",
                         color = accentPurple,
-                        onClick = { showLogoutDialog = true }
+                        onClick = onOpenSettings
                     )
 
-                    // Delete account
-                    ActionButton(
-                        icon = Icons.Filled.DeleteForever,
-                        label = "Delete Account & Data",
-                        sublabel = "Permanently removes all your data",
-                        color = expenseColor,
-                        onClick = { showDeleteDialog = true }
-                    )
+                    if (user != null) {
+                        ActionButton(
+                            icon = Icons.AutoMirrored.Filled.Logout,
+                            label = "Sign Out",
+                            sublabel = "Your data stays on this device",
+                            color = accentPurple,
+                            onClick = { showLogoutDialog = true }
+                        )
+
+                        ActionButton(
+                            icon = Icons.Filled.DeleteForever,
+                            label = "Delete Account & Data",
+                            sublabel = "Permanently removes your cloud and local data",
+                            color = expenseColor,
+                            onClick = { showDeleteDialog = true }
+                        )
+                    } else {
+                        ActionButton(
+                            icon = Icons.AutoMirrored.Filled.Login,
+                            label = "Sign In",
+                            sublabel = "Back up and sync across devices",
+                            color = accentPurple,
+                            onClick = onSignIn
+                        )
+                    }
+
+                    // Surfaced here rather than swallowed: account deletion can fail on the
+                    // cloud step or on Firebase's recent-login requirement, and the user needs
+                    // to know nothing was deleted.
+                    (state as? AuthUiState.Error)?.let { error ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(expenseColor.copy(alpha = 0.1f))
+                                .border(1.dp, expenseColor.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(error.message, color = expenseColor, fontSize = 12.sp, lineHeight = 17.sp)
+                        }
+                    }
 
                     Spacer(Modifier.height(8.dp))
 
                     Text(
-                        text = "Account deletion is irreversible.\nAll trackers, sources and receipts will be lost.",
+                        text = if (user != null) {
+                            "Account deletion is irreversible.\nAll trackers, sources and receipts will be lost."
+                        } else {
+                            "You're using the app without an account.\nEverything is saved on this device."
+                        },
                         color = textSecondary.copy(alpha = 0.4f),
                         fontSize = 11.sp,
                         textAlign = TextAlign.Center,

@@ -32,3 +32,4 @@ play-service-account*.json
 local.properties
 /.claude/worktrees/interesting-brahmagupta/
 /.claude/*
+*.rules

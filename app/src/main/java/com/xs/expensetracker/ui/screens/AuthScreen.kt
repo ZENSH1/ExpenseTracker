@@ -26,13 +26,18 @@ import com.xs.expensetracker.utils.states.AuthUiState
 import com.xs.expensetracker.utils.PreviewScreens
 import org.koin.androidx.compose.koinViewModel
 
+/**
+ * Sign-in is optional — it enables cloud sync and nothing else. [onSkip] is always available so
+ * this screen can never trap someone who just wants to track expenses on their phone.
+ */
 @Composable
 fun AuthScreen(
     // -- new params --
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onSkip: () -> Unit
 ) {
     val state by authViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -181,7 +186,7 @@ fun AuthScreen(
             Spacer(Modifier.height(8.dp))
 
             Text(
-                text = "Track income & expenses.\nStay in control of your money.",
+                text = "Sign in to back up your data and sync it\nacross your devices.",
                 color = textSecondary,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,
@@ -244,7 +249,24 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(14.dp))
+
+            // ── Continue without an account ──────────────────────────
+            // Given equal visual weight to the sign-in button on purpose: sync is a feature,
+            // not a toll gate, and burying this would misrepresent that.
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "Continue without an account",
+                    color = textSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
 
             // ── Status message ───────────────────────────────────────
             AnimatedVisibility(

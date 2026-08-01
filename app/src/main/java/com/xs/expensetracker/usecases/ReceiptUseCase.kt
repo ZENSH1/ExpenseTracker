@@ -13,12 +13,13 @@ class ReceiptUseCase(
     private val logger: AppLogger
 ) {
 
-    // sourceId = null or "" → all receipts across every source in the tracker
     fun observeReceipts(
         trackerId: String,
         sourceId: String?
-    ): Flow<List<TransactionReceipt>> =
-        repository.observeReceipts(trackerId, sourceId)
+    ): Flow<List<TransactionReceipt>> = repository.observeReceipts(trackerId, sourceId)
+
+    suspend fun getReceiptsForExport(trackerId: String): List<TransactionReceipt> =
+        repository.getReceiptsForExport(trackerId)
 
     fun addReceipt(
         trackerId: String,
@@ -29,123 +30,61 @@ class ReceiptUseCase(
         amount: Double,
         date: Long
     ): Flow<TransactionUiEvent> = flow {
-        if (trackerId.isBlank() || sourceId.isBlank()) {
-            val msg = "Invalid tracker or source"
-            logger.error(TAG, "addReceipt", msg, mapOf("tracker_id" to trackerId, "source_id" to sourceId))
-            emit(TransactionUiEvent.Error(msg))
+        validateReceiptInput(trackerId, sourceId, name, amount)?.let {
+            emit(TransactionUiEvent.Error(it))
             return@flow
         }
-        if (name.isBlank()) {
-            val msg = "Receipt name cannot be empty"
-            logger.error(TAG, "addReceipt", msg, mapOf("tracker_id" to trackerId, "source_id" to sourceId))
-            emit(TransactionUiEvent.Error(msg))
-            return@flow
-        }
-        if (amount <= 0.0) {
-            val msg = "Amount must be greater than zero"
-            logger.error(TAG, "addReceipt", msg, mapOf("tracker_id" to trackerId, "amount" to amount.toString()))
-            emit(TransactionUiEvent.Error(msg))
-            return@flow
-        }
-        logger.debug(TAG, "addReceipt → trackerId=$trackerId sourceId=$sourceId name=$name amount=$amount")
         emit(TransactionUiEvent.Loading("Adding receipt..."))
         repository.addReceipt(trackerId, sourceId, type, name.trim(), description, amount, date).fold(
             onSuccess = {
-                logger.event("receipt_added", mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "type"       to type.name
-                ))
+                logger.event(
+                    "receipt_added",
+                    mapOf("tracker_id" to trackerId, "source_id" to sourceId, "type" to type.name)
+                )
                 emit(TransactionUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "addReceipt", it, mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "type"       to type.name
-                ))
+                logger.error(TAG, "addReceipt", it, mapOf("tracker_id" to trackerId))
                 emit(TransactionUiEvent.Error(it.message ?: "Failed to add receipt"))
             }
         )
     }
 
-    fun updateReceipt(
-        trackerId: String,
-        sourceId: String,
-        receipt: TransactionReceipt
-    ): Flow<TransactionUiEvent> = flow {
+    fun updateReceipt(receipt: TransactionReceipt): Flow<TransactionUiEvent> = flow {
         if (receipt.id.isBlank()) {
-            val msg = "Invalid receipt"
-            logger.error(TAG, "updateReceipt", msg, mapOf("tracker_id" to trackerId, "source_id" to sourceId))
-            emit(TransactionUiEvent.Error(msg))
+            emit(TransactionUiEvent.Error("Invalid receipt"))
             return@flow
         }
-        if (receipt.name.isBlank()) {
-            val msg = "Receipt name cannot be empty"
-            logger.error(TAG, "updateReceipt", msg, mapOf("receipt_id" to receipt.id))
-            emit(TransactionUiEvent.Error(msg))
+        validateReceiptInput(receipt.trackerId, receipt.sourceId, receipt.name, receipt.amount)?.let {
+            emit(TransactionUiEvent.Error(it))
             return@flow
         }
-        if (receipt.amount <= 0.0) {
-            val msg = "Amount must be greater than zero"
-            logger.error(TAG, "updateReceipt", msg, mapOf("receipt_id" to receipt.id, "amount" to receipt.amount.toString()))
-            emit(TransactionUiEvent.Error(msg))
-            return@flow
-        }
-        logger.debug(TAG, "updateReceipt → receiptId=${receipt.id} amount=${receipt.amount}")
         emit(TransactionUiEvent.Loading("Updating receipt..."))
-        repository.updateReceipt(trackerId, sourceId, receipt).fold(
+        repository.updateReceipt(receipt).fold(
             onSuccess = {
-                logger.event("receipt_updated", mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "receipt_id" to receipt.id
-                ))
+                logger.event("receipt_updated", mapOf("receipt_id" to receipt.id))
                 emit(TransactionUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "updateReceipt", it, mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "receipt_id" to receipt.id
-                ))
+                logger.error(TAG, "updateReceipt", it, mapOf("receipt_id" to receipt.id))
                 emit(TransactionUiEvent.Error(it.message ?: "Failed to update receipt"))
             }
         )
     }
 
-    fun deleteReceipt(
-        trackerId: String,
-        sourceId: String,
-        receiptId: String
-    ): Flow<TransactionUiEvent> = flow {
-        if (trackerId.isBlank() || sourceId.isBlank() || receiptId.isBlank()) {
-            val msg = "Invalid receipt reference"
-            logger.error(TAG, "deleteReceipt", msg, mapOf(
-                "tracker_id" to trackerId,
-                "source_id"  to sourceId,
-                "receipt_id" to receiptId
-            ))
-            emit(TransactionUiEvent.Error(msg))
+    fun deleteReceipt(receiptId: String): Flow<TransactionUiEvent> = flow {
+        if (receiptId.isBlank()) {
+            emit(TransactionUiEvent.Error("Invalid receipt reference"))
             return@flow
         }
-        logger.debug(TAG, "deleteReceipt → trackerId=$trackerId sourceId=$sourceId receiptId=$receiptId")
         emit(TransactionUiEvent.Loading("Deleting receipt..."))
-        repository.deleteReceipt(trackerId, sourceId, receiptId).fold(
+        repository.deleteReceipt(receiptId).fold(
             onSuccess = {
-                logger.event("receipt_deleted", mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "receipt_id" to receiptId
-                ))
+                logger.event("receipt_deleted", mapOf("receipt_id" to receiptId))
                 emit(TransactionUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "deleteReceipt", it, mapOf(
-                    "tracker_id" to trackerId,
-                    "source_id"  to sourceId,
-                    "receipt_id" to receiptId
-                ))
+                logger.error(TAG, "deleteReceipt", it, mapOf("receipt_id" to receiptId))
                 emit(TransactionUiEvent.Error(it.message ?: "Failed to delete receipt"))
             }
         )
@@ -154,4 +93,24 @@ class ReceiptUseCase(
     private companion object {
         const val TAG = "ReceiptUseCase"
     }
+}
+
+/**
+ * Shared field checks for add and update.
+ *
+ * Returns the first problem found, or `null` when the input is usable. NaN and infinity are
+ * rejected explicitly: both slip past a `> 0` test on some paths and would poison every
+ * aggregate that later sums the column.
+ */
+internal fun validateReceiptInput(
+    trackerId: String,
+    sourceId: String,
+    name: String,
+    amount: Double
+): String? = when {
+    trackerId.isBlank() || sourceId.isBlank() -> "Invalid tracker or source"
+    name.isBlank() -> "Receipt name cannot be empty"
+    !amount.isFinite() -> "Amount is not a valid number"
+    amount <= 0.0 -> "Amount must be greater than zero"
+    else -> null
 }

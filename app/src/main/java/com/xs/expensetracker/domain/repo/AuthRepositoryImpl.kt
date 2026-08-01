@@ -47,13 +47,12 @@ class AuthRepositoryImpl(
         auth.signOut()
     }
 
-    override suspend fun deleteAccount(): Result<Unit> {
-        require(currentUser != null) { "User is not authenticated" }
-        return runCatching {
-            withContext(Dispatchers.IO){
-                currentUser!!.delete().await()
-            }
+    // The precondition lives inside runCatching so a signed-out caller gets a failed Result
+    // like every other error path, instead of an exception thrown past the fold().
+    override suspend fun deleteAccount(): Result<Unit> = runCatching {
+        val user = currentUser ?: throw IllegalStateException("User is not authenticated")
+        withContext(Dispatchers.IO) {
+            user.delete().await()
         }
-
     }
 }

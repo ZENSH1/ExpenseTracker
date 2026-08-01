@@ -39,6 +39,7 @@ jobs:
     env:
       # A manual run is a dry run unless explicitly unticked. Tag pushes always publish.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      PACKAGE_NAME: com.xs.expensetracker
 
     steps:
       - name: Checkout
@@ -98,22 +99,41 @@ jobs:
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
 
-          if ! [[ "${VERSION_NAME}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "::error::Version '${VERSION_NAME}' is not MAJOR.MINOR.PATCH."
-            echo "Tags must look like v1.2.3 — pre-release suffixes are not supported."
+          if ! [[ "${VERSION_NAME}" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version '${VERSION_NAME}' is not MAJOR.MINOR.PATCH[-PRERELEASE]."
+            echo "Valid examples: v1.2.3, v1.2.3-alpha, v1.2.3-rc.1"
             exit 1
           fi
 
           MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; PATCH="${BASH_REMATCH[3]}"
+          PRERELEASE="${BASH_REMATCH[4]:-}"
           if [ "${MINOR}" -gt 999 ] || [ "${PATCH}" -gt 999 ]; then
             echo "::error::MINOR and PATCH must each be <= 999 (got ${MINOR}.${PATCH})."
             exit 1
           fi
 
+          # versionName keeps the pre-release suffix (Play accepts any string);
+          # versionCode is numeric-only, so it ignores it.
           VERSION_CODE=$(( MAJOR * 1000000 + MINOR * 1000 + PATCH ))
+
+          if [ -n "${PRERELEASE}" ]; then
+            echo "::notice::'${VERSION_NAME}' is a pre-release. versionCode ${VERSION_CODE} comes \
+          from ${MAJOR}.${MINOR}.${PATCH} alone, so a later v${MAJOR}.${MINOR}.${PATCH} maps to the \
+          same code; the next step bumps past anything already on Play."
+          fi
           echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
           echo "VERSION_CODE=${VERSION_CODE}" >> "$GITHUB_ENV"
           echo "Releasing ${VERSION_NAME} (versionCode ${VERSION_CODE}), dry_run=${DRY_RUN}"
+
+      # The tag fixes the version code, which collides whenever the same
+      # MAJOR.MINOR.PATCH is published twice. Play is the authority on what is
+      # already taken, so ask it and step past the highest code in use rather
+      # than discovering the clash after a full build and upload.
+      - name: Resolve a versionCode Play will accept
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: python3 .github/scripts/resolve-version-code.py
 
       # gradle/gradle-daemon-jvm.properties pins the daemon to JetBrains Runtime 21.
       # Installing a matching JDK here stops Gradle from downloading one mid-build.
@@ -142,8 +162,8 @@ jobs:
             | base64 --decode > app/google-services.json
           jq empty app/google-services.json
           pkg="$(jq -r '.client[0].client_info.android_client_info.package_name' app/google-services.json)"
-          if [ "${pkg}" != "com.xs.expensetracker" ]; then
-            echo "::error::google-services.json is for package '${pkg}', expected com.xs.expensetracker."
+          if [ "${pkg}" != "${PACKAGE_NAME}" ]; then
+            echo "::error::google-services.json is for package '${pkg}', expected ${PACKAGE_NAME}."
             exit 1
           fi
 
@@ -187,9 +207,12 @@ jobs:
             -alias "${alias}" > /dev/null
           echo "Keystore opened; alias '${alias}' present."
 
+      # `test` covers whatever unit test variants exist. This project only has
+      # testDebugUnitTest — there is no release-variant unit test task — so
+      # naming the release task directly fails the build.
       - name: Unit tests
         shell: bash
-        run: ./gradlew testReleaseUnitTest
+        run: ./gradlew test
 
       - name: Build release AAB
         env:
@@ -264,7 +287,7 @@ jobs:
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.xs.expensetracker
+          packageName: ${{ env.PACKAGE_NAME }}
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
           track: internal
           status: completed

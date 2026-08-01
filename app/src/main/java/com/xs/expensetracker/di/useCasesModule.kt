@@ -11,19 +11,13 @@ val useCasesModule = module {
     single<AuthUseCase> {
         AuthUseCase(
             authRepository = get(),
-            googleAuthManager = get()
+            googleAuthManager = get(),
+            syncRepository = get(),
+            expenseRepository = get()
         )
     }
 
-    single<TrackerUseCase> {
-        TrackerUseCase(repository = get(), logger = get())
-    }
-
-    single<SourceUseCase> {
-        SourceUseCase(repository = get(), logger = get())
-    }
-
-    single<ReceiptUseCase> {
-        ReceiptUseCase(repository = get(), logger = get())
-    }
+    single<TrackerUseCase> { TrackerUseCase(repository = get(), logger = get()) }
+    single<SourceUseCase> { SourceUseCase(repository = get(), logger = get()) }
+    single<ReceiptUseCase> { ReceiptUseCase(repository = get(), logger = get()) }
 }

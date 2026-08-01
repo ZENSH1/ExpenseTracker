@@ -1,6 +1,7 @@
 package com.xs.expensetracker.di
 
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.ui.viewmodels.SyncViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -14,8 +15,13 @@ val viewModelModule = module {
     viewModel<TransactionsViewModel> {
         TransactionsViewModel(
             trackerUseCase = get(),
-            sourceUseCase  = get(),
-            receiptUseCase = get()
+            sourceUseCase = get(),
+            receiptUseCase = get(),
+            identityProvider = get()
         )
+    }
+
+    viewModel<SyncViewModel> {
+        SyncViewModel(syncRepository = get())
     }
 }

@@ -4,9 +4,10 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.xs.expensetracker.data.prefs.IdentityProvider
 import com.xs.expensetracker.domain.data.enums.TransactionType
-import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.usecases.ReceiptUseCase
 import com.xs.expensetracker.usecases.SourceUseCase
 import com.xs.expensetracker.usecases.TrackerUseCase
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -30,7 +30,8 @@ import kotlinx.coroutines.withContext
 class TransactionsViewModel(
     private val trackerUseCase: TrackerUseCase,
     private val sourceUseCase: SourceUseCase,
-    private val receiptUseCase: ReceiptUseCase
+    private val receiptUseCase: ReceiptUseCase,
+    private val identityProvider: IdentityProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TransactionsUiState())
@@ -39,8 +40,17 @@ class TransactionsViewModel(
     private var observeTrackersJob: Job? = null
     private var observeSourcesJob: Job? = null
     private var observeReceiptsJob: Job? = null
-
     private var observeTrackerJob: Job? = null
+
+    init {
+        // Ownership decides the "shared with you" badge and which menu actions appear. It has to
+        // track sign-in state, since the same records are owned by a device id before an account
+        // exists and by the uid afterwards.
+        identityProvider.observeOwnerId()
+            .onEach { owner -> _uiState.update { it.copy(currentOwnerId = owner) } }
+            .catch { /* identity is cosmetic here; never surface it as a data error */ }
+            .launchIn(viewModelScope)
+    }
 
     // ------------------------------------------------
     // TRACKERS
@@ -56,42 +66,38 @@ class TransactionsViewModel(
             .launchIn(viewModelScope)
     }
 
-    fun observeTrackers(userId: String) {
+    fun observeTrackers() {
         observeTrackersJob?.cancel()
         observeTrackersJob = trackerUseCase
-            .observeTrackers(userId)
-            .onEach { trackers -> _uiState.update { it.copy(trackers = trackers) } }
-            .catch { e -> _uiState.update { it.copy(error = e.message) } }
+            .observeTrackers()
+            .onEach { trackers ->
+                _uiState.update { it.copy(trackers = trackers, isInitialLoad = false) }
+            }
+            .catch { e -> _uiState.update { it.copy(error = e.message, isInitialLoad = false) } }
             .launchIn(viewModelScope)
     }
 
-    fun createTracker(name: String, ownerId: String) {
+    fun createTracker(name: String) {
         viewModelScope.launch {
-            trackerUseCase.createTracker(name, ownerId).collect {}
+            trackerUseCase.createTracker(name).collect(::handleTrackerEvent)
         }
     }
 
     fun updateTrackerName(trackerId: String, newName: String) {
         viewModelScope.launch {
-            trackerUseCase.updateTrackerName(trackerId, newName).collect { event ->
-                handleTrackerEvent(event)
-            }
+            trackerUseCase.updateTrackerName(trackerId, newName).collect(::handleTrackerEvent)
         }
     }
 
     fun shareTracker(trackerId: String, userIdToShare: String) {
         viewModelScope.launch {
-            trackerUseCase.shareTracker(trackerId, userIdToShare).collect { event ->
-                handleTrackerEvent(event)
-            }
+            trackerUseCase.shareTracker(trackerId, userIdToShare).collect(::handleTrackerEvent)
         }
     }
 
     fun deleteTracker(trackerId: String) {
         viewModelScope.launch {
-            trackerUseCase.deleteTracker(trackerId).collect { event ->
-                handleTrackerEvent(event)
-            }
+            trackerUseCase.deleteTracker(trackerId).collect(::handleTrackerEvent)
         }
     }
 
@@ -100,7 +106,7 @@ class TransactionsViewModel(
             when (event) {
                 is TrackerUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
                 is TrackerUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
-                is TrackerUiEvent.Error   -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
+                is TrackerUiEvent.Error -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
             }
         }
     }
@@ -111,7 +117,6 @@ class TransactionsViewModel(
 
     fun observeSources(trackerId: String, type: TransactionType? = null) {
         observeSourcesJob?.cancel()
-        _uiState.update { it.copy(sources = emptyList()) }
         observeSourcesJob = sourceUseCase
             .observeSources(trackerId, type)
             .onEach { sources -> _uiState.update { it.copy(sources = sources) } }
@@ -121,17 +126,19 @@ class TransactionsViewModel(
 
     fun createSource(trackerId: String, name: String, type: TransactionType) {
         viewModelScope.launch {
-            sourceUseCase.createSource(trackerId, name, type).collect { event ->
-                handleTransactionEvent(event)
-            }
+            sourceUseCase.createSource(trackerId, name, type).collect(::handleTransactionEvent)
+        }
+    }
+
+    fun updateSource(sourceId: String, name: String, type: TransactionType) {
+        viewModelScope.launch {
+            sourceUseCase.updateSource(sourceId, name, type).collect(::handleTransactionEvent)
         }
     }
 
     fun deleteSource(trackerId: String, sourceId: String) {
         viewModelScope.launch {
-            sourceUseCase.deleteSource(trackerId, sourceId).collect { event ->
-                handleTransactionEvent(event)
-            }
+            sourceUseCase.deleteSource(trackerId, sourceId).collect(::handleTransactionEvent)
         }
     }
 
@@ -139,13 +146,9 @@ class TransactionsViewModel(
     // RECEIPTS
     // ------------------------------------------------
 
-    /**
-     * sourceId = null or ""  →  observe ALL receipts across every source in the tracker.
-     * sourceId non-blank     →  observe receipts for that specific source only.
-     */
+    /** [sourceId] null or blank observes every receipt in the tracker. */
     fun observeReceipts(trackerId: String, sourceId: String?) {
         observeReceiptsJob?.cancel()
-        _uiState.update { it.copy(receipts = emptyList()) }
         observeReceiptsJob = receiptUseCase
             .observeReceipts(trackerId, sourceId)
             .onEach { receipts -> _uiState.update { it.copy(receipts = receipts) } }
@@ -164,21 +167,19 @@ class TransactionsViewModel(
     ) {
         viewModelScope.launch {
             receiptUseCase.addReceipt(trackerId, sourceId, type, name, description, amount, date)
-                .collect { event -> handleTransactionEvent(event) }
+                .collect(::handleTransactionEvent)
         }
     }
 
-    fun updateReceipt(trackerId: String, sourceId: String, receipt: TransactionReceipt) {
+    fun updateReceipt(receipt: TransactionReceipt) {
         viewModelScope.launch {
-            receiptUseCase.updateReceipt(trackerId, sourceId, receipt)
-                .collect { event -> handleTransactionEvent(event) }
+            receiptUseCase.updateReceipt(receipt).collect(::handleTransactionEvent)
         }
     }
 
-    fun deleteReceipt(trackerId: String, sourceId: String, receiptId: String) {
+    fun deleteReceipt(receiptId: String) {
         viewModelScope.launch {
-            receiptUseCase.deleteReceipt(trackerId, sourceId, receiptId)
-                .collect { event -> handleTransactionEvent(event) }
+            receiptUseCase.deleteReceipt(receiptId).collect(::handleTransactionEvent)
         }
     }
 
@@ -187,7 +188,7 @@ class TransactionsViewModel(
             when (event) {
                 is TransactionUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
                 is TransactionUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
-                is TransactionUiEvent.Error   -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
+                is TransactionUiEvent.Error -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
             }
         }
     }
@@ -199,10 +200,12 @@ class TransactionsViewModel(
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
-    fun clearAllObservers(){
+
+    fun clearAllObservers() {
         observeTrackersJob?.cancel()
         observeSourcesJob?.cancel()
         observeReceiptsJob?.cancel()
+        observeTrackerJob?.cancel()
     }
 
     // ------------------------------------------------
@@ -210,29 +213,31 @@ class TransactionsViewModel(
     // ------------------------------------------------
 
     /**
-     * Collect ALL sources + receipts for the tracker (regardless of active
-     * type filter), then generate a CSV in the app's cache directory.
-     * Returns a FileProvider URI the caller can use for ACTION_SEND, or
-     * null if generation fails.
+     * Reads the tracker's full contents directly rather than reusing the observed lists, which
+     * are narrowed by whatever filter the user has active on screen. Works offline — everything
+     * it needs is already local.
      */
     suspend fun exportToCsv(context: Context, tracker: Tracker): Uri? =
         withContext(Dispatchers.IO) {
             runCatching {
-                val allSources  = sourceUseCase.observeSources(tracker.id, null).first()
-                val allReceipts = receiptUseCase.observeReceipts(tracker.id, null).first()
-                ExportManager.exportToCsv(context.applicationContext, tracker, allSources, allReceipts)
+                ExportManager.exportToCsv(
+                    context.applicationContext,
+                    tracker,
+                    sourceUseCase.getSourcesForExport(tracker.id),
+                    receiptUseCase.getReceiptsForExport(tracker.id)
+                )
             }.getOrNull()
         }
 
-    /**
-     * Same as above but produces a PDF.
-     */
     suspend fun exportToPdf(context: Context, tracker: Tracker): Uri? =
         withContext(Dispatchers.IO) {
             runCatching {
-                val allSources  = sourceUseCase.observeSources(tracker.id, null).first()
-                val allReceipts = receiptUseCase.observeReceipts(tracker.id, null).first()
-                ExportManager.exportToPdf(context.applicationContext, tracker, allSources, allReceipts)
+                ExportManager.exportToPdf(
+                    context.applicationContext,
+                    tracker,
+                    sourceUseCase.getSourcesForExport(tracker.id),
+                    receiptUseCase.getReceiptsForExport(tracker.id)
+                )
             }.getOrNull()
         }
 }

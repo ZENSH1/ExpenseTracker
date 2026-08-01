@@ -1,9 +1,8 @@
 package com.xs.expensetracker.utils.sealed
 
-import com.xs.expensetracker.domain.data.enums.TransactionType
-import com.xs.expensetracker.domain.data.models.Tracker
-import kotlinx.serialization.Serializable
 import androidx.navigation3.runtime.NavKey
+import com.xs.expensetracker.domain.data.enums.TransactionType
+import kotlinx.serialization.Serializable
 
 @Serializable
 sealed interface AppRoute : NavKey
@@ -11,22 +10,33 @@ sealed interface AppRoute : NavKey
 @Serializable
 object SplashRoute : AppRoute
 
+/**
+ * Sign-in. Reachable from settings and the tracker list, but never forced — the app is fully
+ * usable without ever visiting it.
+ */
 @Serializable
 object AuthRoute : AppRoute
 
 @Serializable
 object TrackerSelectionRoute : AppRoute
 
-// Carries the selected Tracker so HomeScreen can use it immediately
-// without a secondary fetch
-
+/**
+ * Carries only the id. An earlier version passed the whole [com.xs.expensetracker.domain.data.models.Tracker]
+ * through the back stack, which meant a serialised snapshot of the balance that went stale the
+ * moment a receipt changed — and, now that sync can rewrite records in the background, stale
+ * far more often. The screen observes the tracker instead.
+ */
 @Serializable
-data class HomeRoute(val tracker: Tracker) : AppRoute
+data class HomeRoute(val trackerId: String) : AppRoute
 
 @Serializable
 object ProfileRoute : AppRoute
 
-// trackerId carried here so child screens don't touch auth state directly
+@Serializable
+object SettingsRoute : AppRoute
+
+@Serializable
+object ConflictsRoute : AppRoute
 
 @Serializable
 data class SourcesRoute(val trackerId: String, val type: TransactionType) : AppRoute

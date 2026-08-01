@@ -18,34 +18,59 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.rememberNavBackStack
+import com.xs.expensetracker.ui.components.modals.AccountChangeDialog
+import com.xs.expensetracker.ui.components.modals.LinkDecisionDialog
 import com.xs.expensetracker.ui.screens.AuthScreen
+import com.xs.expensetracker.ui.screens.ConflictsScreen
 import com.xs.expensetracker.ui.screens.HomeScreen
 import com.xs.expensetracker.ui.screens.ProfileScreen
 import com.xs.expensetracker.ui.screens.ReceiptsScreen
+import com.xs.expensetracker.ui.screens.SettingsScreen
 import com.xs.expensetracker.ui.screens.SourcesScreen
 import com.xs.expensetracker.ui.screens.SplashScreen
 import com.xs.expensetracker.ui.screens.TrackerSelectionScreen
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.ui.viewmodels.SyncViewModel
 import com.xs.expensetracker.utils.sealed.AuthRoute
+import com.xs.expensetracker.utils.sealed.ConflictsRoute
 import com.xs.expensetracker.utils.sealed.HomeRoute
 import com.xs.expensetracker.utils.sealed.ProfileRoute
 import com.xs.expensetracker.utils.sealed.ReceiptsRoute
+import com.xs.expensetracker.utils.sealed.SettingsRoute
 import com.xs.expensetracker.utils.sealed.SourcesRoute
 import com.xs.expensetracker.utils.sealed.SplashRoute
 import com.xs.expensetracker.utils.sealed.TrackerSelectionRoute
 import org.koin.androidx.compose.koinViewModel
 
+/**
+ * Root navigation.
+ *
+ * Auth is no longer a gate. Splash goes straight to the tracker list whether or not anyone is
+ * signed in, and signing out returns there rather than bouncing to a login wall — the local
+ * database is still there and still fully usable.
+ *
+ * The two sync decision dialogs are hosted here rather than on a screen, because they can be
+ * raised by a background worker at any moment and must be answerable from wherever the user
+ * happens to be.
+ */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun AppNavigator(
-    authViewModel: AuthViewModel = koinViewModel()
+    authViewModel: AuthViewModel = koinViewModel(),
+    syncViewModel: SyncViewModel = koinViewModel()
 ) {
     val authState by authViewModel.uiState.collectAsState()
+    val syncState by syncViewModel.state.collectAsState()
     val backStack = rememberNavBackStack(SplashRoute)
     val currentKey = backStack.lastOrNull() ?: SplashRoute
 
     BackHandler(enabled = backStack.size > 1) {
         backStack.removeLastOrNull()
+    }
+
+    fun resetTo(route: androidx.navigation3.runtime.NavKey) {
+        backStack.clear()
+        backStack.add(route)
     }
 
     SharedTransitionLayout {
@@ -65,72 +90,63 @@ fun AppNavigator(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
                     authState = authState,
-                    onResult = { loggedIn ->
-                        backStack.clear()
-                        backStack.add(if (loggedIn) TrackerSelectionRoute else AuthRoute)
-                    }
+                    onReady = { resetTo(TrackerSelectionRoute) }
                 )
 
-                // ── Auth ─────────────────────────────────────────────────
+                // ── Auth (optional, only ever reached deliberately) ──────
                 AuthRoute -> AuthScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
-                    onLoginSuccess = {
-                        backStack.clear()
-                        backStack.add(TrackerSelectionRoute)
-                    }
+                    onLoginSuccess = { resetTo(TrackerSelectionRoute) },
+                    onSkip = { resetTo(TrackerSelectionRoute) }
                 )
 
                 // ── Tracker Selection ─────────────────────────────────────
                 TrackerSelectionRoute -> TrackerSelectionScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
-                    onTrackerSelected = { tracker ->
-                        backStack.add(HomeRoute(tracker))
-                    },
-                    onLogout = {
-                        authViewModel.signOut()
-                        backStack.clear()
-                        backStack.add(AuthRoute)
-                    }
+                    onTrackerSelected = { tracker -> backStack.add(HomeRoute(tracker.id)) },
+                    onOpenSettings = { backStack.add(SettingsRoute) },
+                    onOpenProfile = { backStack.add(ProfileRoute) },
+                    onOpenConflicts = { backStack.add(ConflictsRoute) }
                 )
 
                 // ── Home ─────────────────────────────────────────────────
                 is HomeRoute -> HomeScreen(
-                    tracker = key.tracker,
+                    trackerId = key.trackerId,
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
-                    onLogout = {
-                        authViewModel.signOut()
-                        backStack.clear()
-                        backStack.add(AuthRoute)
-                    },
                     onNavigateToSources = { type ->
-                        backStack.add(SourcesRoute(trackerId = key.tracker.id, type = type))
+                        backStack.add(SourcesRoute(trackerId = key.trackerId, type = type))
                     },
                     onNavigateToReceipts = { type ->
-                        backStack.add(ReceiptsRoute(trackerId = key.tracker.id, type = type))
+                        backStack.add(ReceiptsRoute(trackerId = key.trackerId, type = type))
                     },
-                    onProfileClicked = {
-                        backStack.add(ProfileRoute)
-                    },
-                    onBack = {
-                        backStack.removeLastOrNull()
-                    }
+                    onProfileClicked = { backStack.add(ProfileRoute) },
+                    onOpenSettings = { backStack.add(SettingsRoute) },
+                    onBack = { backStack.removeLastOrNull() }
                 )
 
                 // ── Profile ──────────────────────────────────────────────
                 ProfileRoute -> ProfileScreen(
                     sharedTransitionScope = this@SharedTransitionLayout,
                     animatedVisibilityScope = this,
-                    onLogout = {
-                        authViewModel.signOut()
-                        backStack.clear()
-                        backStack.add(AuthRoute)
-                    },
-                    onBack = {
-                        backStack.removeLastOrNull()
-                    }
+                    // Signing out keeps local data, so there is nowhere to eject the user to.
+                    onSignedOut = { resetTo(TrackerSelectionRoute) },
+                    onSignIn = { backStack.add(AuthRoute) },
+                    onOpenSettings = { backStack.add(SettingsRoute) },
+                    onBack = { backStack.removeLastOrNull() }
+                )
+
+                // ── Settings ─────────────────────────────────────────────
+                SettingsRoute -> SettingsScreen(
+                    onBack = { backStack.removeLastOrNull() },
+                    onOpenConflicts = { backStack.add(ConflictsRoute) }
+                )
+
+                // ── Conflicts ────────────────────────────────────────────
+                ConflictsRoute -> ConflictsScreen(
+                    onBack = { backStack.removeLastOrNull() }
                 )
 
                 // ── Sources ──────────────────────────────────────────────
@@ -154,5 +170,27 @@ fun AppNavigator(
                 else -> Box(Modifier.fillMaxSize()) { Text("Unknown destination") }
             }
         }
+    }
+
+    // ── Sync decisions ───────────────────────────────────────────────────────
+    // Hosted above the back stack: a background sync can raise either of these while the user
+    // is anywhere in the app, and both must be answered before syncing can continue.
+
+    val pendingAccount = syncState.pendingAccountUid
+    val pendingLink = syncState.pendingLink
+
+    when {
+        // An account switch is settled first: until it is, "whose data is this?" is unanswered,
+        // which makes any link decision meaningless.
+        pendingAccount != null -> AccountChangeDialog(
+            localRecords = syncState.localRecordCount,
+            onChoose = syncViewModel::resolveAccountChange
+        )
+
+        pendingLink != null -> LinkDecisionDialog(
+            localRecords = pendingLink.localRecords,
+            remoteTrackers = pendingLink.remoteTrackers,
+            onChoose = syncViewModel::resolveLinkDecision
+        )
     }
 }

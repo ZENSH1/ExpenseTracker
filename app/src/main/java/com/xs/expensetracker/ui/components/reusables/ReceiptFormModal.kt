@@ -198,13 +198,27 @@ fun ReceiptFormModal(
             Button(
                 onClick = {
                     val amount = amountText.toDoubleOrNull() ?: return@Button
-                    if (isEditing) {
+                    // A receipt takes the type of whichever source it is filed under, so moving
+                    // it between an income and an expense source flips its sign as expected.
+                    val resolvedType = selectedSource?.type
+                        ?: editingReceipt?.type
+                        ?: TransactionType.EXPENSE
+                    if (editingReceipt != null) {
                         transactionsViewModel.updateReceipt(
-                            trackerId, selectedSourceId,
-                            editingReceipt!!.copy(name = name.trim(), description = description.trim(), amount = amount, date = selectedDateMillis, sourceId = selectedSourceId)
+                            editingReceipt.copy(
+                                name = name.trim(),
+                                description = description.trim(),
+                                amount = amount,
+                                date = selectedDateMillis,
+                                sourceId = selectedSourceId,
+                                type = resolvedType
+                            )
                         )
                     } else {
-                        transactionsViewModel.addReceipt(trackerId, selectedSourceId, selectedSource?.type?: TransactionType.INCOME,name.trim(), description.trim(), amount, selectedDateMillis)
+                        transactionsViewModel.addReceipt(
+                            trackerId, selectedSourceId, resolvedType,
+                            name.trim(), description.trim(), amount, selectedDateMillis
+                        )
                     }
                 },
                 enabled = isValid && !txState.isLoading,
