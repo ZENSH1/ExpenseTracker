@@ -27,10 +27,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.domain.data.enums.TransactionType
-import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.domain.data.models.TransactionSource
 import com.xs.expensetracker.ui.theme.*
-import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import org.koin.androidx.compose.koinViewModel
@@ -44,14 +42,12 @@ fun SourcesScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     //
-    authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
     onBack: () -> Unit,
     trackerId: String
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
-    val authState by authViewModel.uiState.collectAsState()
 
     var filterType by remember { mutableStateOf<TransactionType?>(type) }
     var showAddModal by remember { mutableStateOf(false) }
@@ -567,10 +563,12 @@ private fun SourceFormModal(
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        if (isEditing) {
-                            transactionsViewModel.updateReceipt(trackerId, editingSource!!.id,
-                                TransactionReceipt()
-                            ) // placeholder — see note
+                        if (editingSource != null) {
+                            transactionsViewModel.updateSource(
+                                sourceId = editingSource.id,
+                                name = name.trim(),
+                                type = selectedType
+                            )
                         } else {
                             transactionsViewModel.createSource(trackerId, name.trim(), selectedType)
                         }

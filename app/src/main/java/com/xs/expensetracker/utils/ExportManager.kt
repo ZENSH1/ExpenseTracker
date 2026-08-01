@@ -103,7 +103,7 @@ object ExportManager {
             receipts.sortedByDescending { it.date }.forEach { r ->
                 val src  = sources.find { it.id == r.sourceId }?.name ?: "Unknown"
                 val date = dateFmt.format(Date(r.date))
-                w.appendLine("${esc(date)},${esc(r.name)},${r.type?.name ?: ""},${esc(src)},${r.amount},${esc(r.description)}")
+                w.appendLine("${esc(date)},${esc(r.name)},${r.type.name},${esc(src)},${r.amount},${esc(r.description)}")
             }
             if (receipts.isEmpty()) w.appendLine("(no transactions)")
         }

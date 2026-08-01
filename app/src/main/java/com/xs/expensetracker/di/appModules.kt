@@ -2,8 +2,9 @@ package com.xs.expensetracker.di
 
 val appModules = listOf(
     firebaseModule,
+    loggerModule,
+    databaseModule,
     repositoryModule,
-    viewModelModule,
     useCasesModule,
-    loggerModule
+    viewModelModule
 )

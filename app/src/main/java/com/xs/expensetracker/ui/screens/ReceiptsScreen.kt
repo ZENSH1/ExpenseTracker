@@ -40,7 +40,6 @@ import com.xs.expensetracker.domain.data.models.TransactionSource
 import com.xs.expensetracker.ui.components.reusables.ReceiptCard
 import com.xs.expensetracker.ui.components.reusables.ReceiptFormModal
 import com.xs.expensetracker.ui.theme.*
-import com.xs.expensetracker.ui.viewmodels.AuthViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import org.koin.androidx.compose.koinViewModel
@@ -53,14 +52,12 @@ import java.util.*
 fun ReceiptsScreen(
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
-    authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
     type: TransactionType,
     onBack: () -> Unit,
     trackerId: String,
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
-    val authState by authViewModel.uiState.collectAsState()
 
     fun getSourceById(sourceId: String): TransactionSource? =
         txState.sources.findLast { it.id == sourceId }
@@ -101,7 +98,7 @@ fun ReceiptsScreen(
             text = { Text("\"${receipt.name}\" will be permanently deleted.") },
             confirmButton = {
                 TextButton(onClick = {
-                    transactionsViewModel.deleteReceipt(trackerId, receipt.sourceId, receipt.id)
+                    transactionsViewModel.deleteReceipt(receipt.id)
                     deletingReceipt = null
                 }) { Text("Delete", color = expenseColor, fontWeight = FontWeight.Bold) }
             },
@@ -124,7 +121,7 @@ fun ReceiptsScreen(
         ReceiptFormModal(
             trackerId = trackerId,
             transactionsViewModel = transactionsViewModel,
-            initialType = receipt.type ?: TransactionType.INCOME,
+            initialType = receipt.type,
             editingReceipt = receipt,
             onDismiss = { transactionsViewModel.clearError(); editingReceipt = null }
         )

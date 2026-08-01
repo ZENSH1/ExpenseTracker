@@ -12,30 +12,24 @@ class TrackerUseCase(
     private val logger: AppLogger
 ) {
 
-
     fun observeTracker(trackerId: String): Flow<Tracker?> = repository.observeTracker(trackerId)
 
+    fun observeTrackers(): Flow<List<Tracker>> = repository.observeTrackers()
 
-    fun observeTrackers(userId: String): Flow<List<Tracker>> =
-        repository.observeTrackers(userId)
-
-    fun createTracker(name: String, ownerId: String): Flow<TrackerUiEvent> = flow {
+    fun createTracker(name: String): Flow<TrackerUiEvent> = flow {
         val trimmed = name.trim()
         if (trimmed.isBlank()) {
-            val msg = "Tracker name cannot be empty"
-            logger.error(TAG, "createTracker", msg)
-            emit(TrackerUiEvent.Error(msg))
+            emit(TrackerUiEvent.Error("Tracker name cannot be empty"))
             return@flow
         }
-        logger.debug(TAG, "createTracker → name=$trimmed ownerId=$ownerId")
         emit(TrackerUiEvent.Loading("Creating tracker..."))
-        repository.createTracker(trimmed, ownerId).fold(
+        repository.createTracker(trimmed).fold(
             onSuccess = {
-                logger.event("tracker_created", mapOf("owner_id" to ownerId))
+                logger.event("tracker_created")
                 emit(TrackerUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "createTracker", it, mapOf("owner_id" to ownerId))
+                logger.error(TAG, "createTracker", it)
                 emit(TrackerUiEvent.Error(it.message ?: "Failed to create tracker"))
             }
         )
@@ -44,12 +38,9 @@ class TrackerUseCase(
     fun updateTrackerName(trackerId: String, newName: String): Flow<TrackerUiEvent> = flow {
         val trimmed = newName.trim()
         if (trimmed.isBlank()) {
-            val msg = "Tracker name cannot be empty"
-            logger.error(TAG, "updateTrackerName", msg, mapOf("tracker_id" to trackerId))
-            emit(TrackerUiEvent.Error(msg))
+            emit(TrackerUiEvent.Error("Tracker name cannot be empty"))
             return@flow
         }
-        logger.debug(TAG, "updateTrackerName → trackerId=$trackerId newName=$trimmed")
         emit(TrackerUiEvent.Loading("Updating tracker..."))
         repository.updateTrackerName(trackerId, trimmed).fold(
             onSuccess = {
@@ -66,18 +57,13 @@ class TrackerUseCase(
     fun shareTracker(trackerId: String, userIdToShare: String): Flow<TrackerUiEvent> = flow {
         val trimmed = userIdToShare.trim()
         if (trimmed.isBlank()) {
-            val msg = "User ID cannot be empty"
-            logger.error(TAG, "shareTracker", msg, mapOf("tracker_id" to trackerId))
-            emit(TrackerUiEvent.Error(msg))
+            emit(TrackerUiEvent.Error("User ID cannot be empty"))
             return@flow
         }
         if (trackerId.isBlank()) {
-            val msg = "Invalid tracker"
-            logger.error(TAG, "shareTracker", msg)
-            emit(TrackerUiEvent.Error(msg))
+            emit(TrackerUiEvent.Error("Invalid tracker"))
             return@flow
         }
-        logger.debug(TAG, "shareTracker → trackerId=$trackerId with=$trimmed")
         emit(TrackerUiEvent.Loading("Sharing tracker..."))
         repository.shareTracker(trackerId, trimmed).fold(
             onSuccess = {
@@ -85,7 +71,7 @@ class TrackerUseCase(
                 emit(TrackerUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "shareTracker", it, mapOf("tracker_id" to trackerId, "target_user" to trimmed))
+                logger.error(TAG, "shareTracker", it, mapOf("tracker_id" to trackerId))
                 emit(TrackerUiEvent.Error(it.message ?: "Failed to share tracker"))
             }
         )
@@ -93,12 +79,9 @@ class TrackerUseCase(
 
     fun deleteTracker(trackerId: String): Flow<TrackerUiEvent> = flow {
         if (trackerId.isBlank()) {
-            val msg = "Invalid tracker"
-            logger.error(TAG, "deleteTracker", msg)
-            emit(TrackerUiEvent.Error(msg))
+            emit(TrackerUiEvent.Error("Invalid tracker"))
             return@flow
         }
-        logger.debug(TAG, "deleteTracker → trackerId=$trackerId")
         emit(TrackerUiEvent.Loading("Deleting tracker..."))
         repository.deleteTracker(trackerId).fold(
             onSuccess = {

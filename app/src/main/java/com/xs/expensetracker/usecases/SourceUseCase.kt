@@ -16,8 +16,10 @@ class SourceUseCase(
     fun observeSources(
         trackerId: String,
         type: TransactionType? = null
-    ): Flow<List<TransactionSource>> =
-        repository.observeSources(trackerId, type)
+    ): Flow<List<TransactionSource>> = repository.observeSources(trackerId, type)
+
+    suspend fun getSourcesForExport(trackerId: String): List<TransactionSource> =
+        repository.getSourcesForExport(trackerId)
 
     fun createSource(
         trackerId: String,
@@ -25,18 +27,13 @@ class SourceUseCase(
         type: TransactionType
     ): Flow<TransactionUiEvent> = flow {
         if (trackerId.isBlank()) {
-            val msg = "Invalid tracker"
-            logger.error(TAG, "createSource", msg)
-            emit(TransactionUiEvent.Error(msg))
+            emit(TransactionUiEvent.Error("Invalid tracker"))
             return@flow
         }
         if (name.isBlank()) {
-            val msg = "Source name cannot be empty"
-            logger.error(TAG, "createSource", msg, mapOf("tracker_id" to trackerId))
-            emit(TransactionUiEvent.Error(msg))
+            emit(TransactionUiEvent.Error("Source name cannot be empty"))
             return@flow
         }
-        logger.debug(TAG, "createSource → trackerId=$trackerId name=$name type=$type")
         emit(TransactionUiEvent.Loading("Creating source..."))
         repository.createSource(trackerId, name.trim(), type).fold(
             onSuccess = {
@@ -44,8 +41,34 @@ class SourceUseCase(
                 emit(TransactionUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "createSource", it, mapOf("tracker_id" to trackerId, "type" to type.name))
+                logger.error(TAG, "createSource", it, mapOf("tracker_id" to trackerId))
                 emit(TransactionUiEvent.Error(it.message ?: "Failed to create source"))
+            }
+        )
+    }
+
+    fun updateSource(
+        sourceId: String,
+        name: String,
+        type: TransactionType
+    ): Flow<TransactionUiEvent> = flow {
+        if (sourceId.isBlank()) {
+            emit(TransactionUiEvent.Error("Invalid source"))
+            return@flow
+        }
+        if (name.isBlank()) {
+            emit(TransactionUiEvent.Error("Source name cannot be empty"))
+            return@flow
+        }
+        emit(TransactionUiEvent.Loading("Updating source..."))
+        repository.updateSource(sourceId, name.trim(), type).fold(
+            onSuccess = {
+                logger.event("source_updated", mapOf("source_id" to sourceId))
+                emit(TransactionUiEvent.Success)
+            },
+            onFailure = {
+                logger.error(TAG, "updateSource", it, mapOf("source_id" to sourceId))
+                emit(TransactionUiEvent.Error(it.message ?: "Failed to update source"))
             }
         )
     }
@@ -55,12 +78,9 @@ class SourceUseCase(
         sourceId: String
     ): Flow<TransactionUiEvent> = flow {
         if (trackerId.isBlank() || sourceId.isBlank()) {
-            val msg = "Invalid tracker or source"
-            logger.error(TAG, "deleteSource", msg, mapOf("tracker_id" to trackerId, "source_id" to sourceId))
-            emit(TransactionUiEvent.Error(msg))
+            emit(TransactionUiEvent.Error("Invalid tracker or source"))
             return@flow
         }
-        logger.debug(TAG, "deleteSource → trackerId=$trackerId sourceId=$sourceId")
         emit(TransactionUiEvent.Loading("Deleting source..."))
         repository.deleteSource(trackerId, sourceId).fold(
             onSuccess = {
@@ -68,7 +88,7 @@ class SourceUseCase(
                 emit(TransactionUiEvent.Success)
             },
             onFailure = {
-                logger.error(TAG, "deleteSource", it, mapOf("tracker_id" to trackerId, "source_id" to sourceId))
+                logger.error(TAG, "deleteSource", it, mapOf("source_id" to sourceId))
                 emit(TransactionUiEvent.Error(it.message ?: "Failed to delete source"))
             }
         )

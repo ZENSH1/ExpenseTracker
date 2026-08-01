@@ -23,8 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.ui.components.reusables.SyncStatusIndicator
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.ui.viewmodels.SyncViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
@@ -40,16 +42,22 @@ fun TrackerSelectionScreen(
     animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
+    syncViewModel: SyncViewModel = koinViewModel(),
     onTrackerSelected: (Tracker) -> Unit,
-    onLogout: () -> Unit
+    onOpenSettings: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenConflicts: () -> Unit
 ) {
     val authState by authViewModel.uiState.collectAsState()
     val txState   by transactionsViewModel.uiState.collectAsState()
+    val syncState by syncViewModel.state.collectAsState()
 
-    val user = (authState as? AuthUiState.Authenticated)?.user ?: return
+    // No early return on auth: trackers come from the local database and exist whether or not
+    // anyone is signed in.
+    val user = (authState as? AuthUiState.Authenticated)?.user
 
-    LaunchedEffect(user.uid) {
-        transactionsViewModel.observeTrackers(user.uid)
+    LaunchedEffect(Unit) {
+        transactionsViewModel.observeTrackers()
     }
 
     // Dialog states
@@ -91,15 +99,15 @@ fun TrackerSelectionScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.clickable { onOpenProfile() }) {
                         Text(
-                            text = "Welcome back,",
+                            text = if (user != null) "Welcome back," else "Your money",
                             color = textSecondary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
                         Text(
-                            text = user.displayName ?: "there",
+                            text = user?.displayName ?: "Expense Tracker",
                             color = textPrimary,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
@@ -110,7 +118,6 @@ fun TrackerSelectionScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        // Loading indicator in top bar
                         AnimatedVisibility(
                             visible = txState.isLoading,
                             enter = fadeIn() + scaleIn(),
@@ -123,13 +130,19 @@ fun TrackerSelectionScreen(
                             )
                         }
 
-                        IconButton(onClick = {
-                            authViewModel.signOut()
-                            onLogout()
-                        }) {
+                        // Tapping the sync symbol goes wherever it is pointing: to the conflict
+                        // list when something needs resolving, to settings otherwise.
+                        SyncStatusIndicator(
+                            status = syncState.status,
+                            onClick = {
+                                if (syncState.conflictCount > 0) onOpenConflicts() else onOpenSettings()
+                            }
+                        )
+
+                        IconButton(onClick = onOpenSettings) {
                             Icon(
-                                Icons.AutoMirrored.Outlined.Logout,
-                                contentDescription = "Sign Out",
+                                Icons.Outlined.Settings,
+                                contentDescription = "Sync & settings",
                                 tint = textSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -177,7 +190,9 @@ fun TrackerSelectionScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // ── Tracker List ─────────────────────────────────────────────
-                if (txState.trackers.isEmpty() && !txState.isLoading) {
+                // isInitialLoad separates "the database hasn't answered yet" from "there is
+                // genuinely nothing here", so the empty state can't flash on every launch.
+                if (txState.trackers.isEmpty() && !txState.isInitialLoad) {
                     EmptyTrackersState(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -201,7 +216,7 @@ fun TrackerSelectionScreen(
                                         animatedVisibilityScope = animatedVisibilityScope,
                                     ),
                                 tracker = tracker,
-                                isOwner = tracker.ownerId == user.uid,
+                                isOwner = tracker.ownerId == txState.currentOwnerId,
                                 currencyFormatter = currencyFormatter,
                                 onClick = { onTrackerSelected(tracker) },
                                 onEdit = { trackerToEdit = tracker },
@@ -252,7 +267,7 @@ fun TrackerSelectionScreen(
             title = "New Tracker",
             confirmLabel = "Create",
             onConfirm = { name ->
-                transactionsViewModel.createTracker(name, user.uid)
+                transactionsViewModel.createTracker(name)
                 showCreateDialog = false
             },
             onDismiss = { showCreateDialog = false }
@@ -312,7 +327,7 @@ private fun TrackerCard(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
 
-    val isPositive = tracker.grandTotal.toDouble() >= 0.0
+    val isPositive = tracker.grandTotal >= 0.0
     val grandTotalColor by animateColorAsState(
         targetValue = if (isPositive) incomeColor else expenseColor,
         animationSpec = tween(400),
@@ -467,7 +482,7 @@ private fun TrackerCard(
                         Text(
                             text = buildString {
                                 if (!isPositive) append("−")
-                                append(currencyFormatter.format(abs(tracker.grandTotal.toDouble())))
+                                append(currencyFormatter.format(abs(tracker.grandTotal)))
                             },
                             color = grandTotalColor,
                             fontSize = 20.sp,

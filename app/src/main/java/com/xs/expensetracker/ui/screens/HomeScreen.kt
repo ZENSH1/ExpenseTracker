@@ -31,6 +31,7 @@ import com.xs.expensetracker.ui.components.modals.AddReceiptModal
 import com.xs.expensetracker.ui.components.modals.AddSourceModal
 import com.xs.expensetracker.ui.components.reusables.NavCard
 import com.xs.expensetracker.ui.components.reusables.QuickActionButton
+import com.xs.expensetracker.ui.components.reusables.SyncStatusIndicator
 import com.xs.expensetracker.ui.theme.accentPurple
 import com.xs.expensetracker.ui.theme.bgCard
 import com.xs.expensetracker.ui.theme.bgDark
@@ -39,6 +40,7 @@ import com.xs.expensetracker.ui.theme.incomeColor
 import com.xs.expensetracker.ui.theme.textPrimary
 import com.xs.expensetracker.ui.theme.textSecondary
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
+import com.xs.expensetracker.ui.viewmodels.SyncViewModel
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
 import com.xs.expensetracker.utils.SharedKeys
 import com.xs.expensetracker.utils.states.AuthUiState
@@ -51,24 +53,30 @@ import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    tracker: Tracker,                               // ← selected tracker passed from TrackerSelectionScreen
+    trackerId: String,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     authViewModel: AuthViewModel = koinViewModel(),
     transactionsViewModel: TransactionsViewModel = koinViewModel(),
-    onLogout: () -> Unit,
+    syncViewModel: SyncViewModel = koinViewModel(),
     onNavigateToSources: (TransactionType) -> Unit,
     onNavigateToReceipts: (TransactionType) -> Unit,
     onProfileClicked: () -> Unit,
+    onOpenSettings: () -> Unit,
     onBack: () -> Unit
 ) {
     val authState by authViewModel.uiState.collectAsState()
     val txState   by transactionsViewModel.uiState.collectAsState()
+    val syncState by syncViewModel.state.collectAsState()
 
-    val user = (authState as? AuthUiState.Authenticated)?.user ?: return
+    val user = (authState as? AuthUiState.Authenticated)?.user
 
     val context        = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    // The tracker is observed rather than carried in the route, so background syncs and edits
+    // on other screens are reflected here without a round trip through navigation.
+    val tracker = txState.selectedTracker
 
     var showAddSourceModal  by remember { mutableStateOf(false) }
     var showAddReceiptModal by remember { mutableStateOf(false) }
@@ -89,10 +97,11 @@ fun HomeScreen(
     }
 
     fun onExportCsv() {
+        val current = tracker ?: return
         if (isExporting) return
         coroutineScope.launch {
             isExporting = true
-            val uri = transactionsViewModel.exportToCsv(context, tracker)
+            val uri = transactionsViewModel.exportToCsv(context, current)
             isExporting = false
             if (uri != null) {
                 shareUri(uri, "text/csv", "Share CSV Report")
@@ -103,10 +112,11 @@ fun HomeScreen(
     }
 
     fun onExportPdf() {
+        val current = tracker ?: return
         if (isExporting) return
         coroutineScope.launch {
             isExporting = true
-            val uri = transactionsViewModel.exportToPdf(context, tracker)
+            val uri = transactionsViewModel.exportToPdf(context, current)
             isExporting = false
             if (uri != null) {
                 shareUri(uri, "application/pdf", "Share PDF Report")
@@ -115,8 +125,6 @@ fun HomeScreen(
             }
         }
     }
-
-    val trackerId = tracker.id
 
     val glowColor by animateColorAsState(
         targetValue = if (selectedType == TransactionType.INCOME)
@@ -136,10 +144,16 @@ fun HomeScreen(
         label = "activeColor"
     )
 
-    LaunchedEffect(trackerId, selectedType) {
+    // Split by key on purpose: only the source list depends on the selected tab, so flipping
+    // between Income and Expense no longer tears down and restarts the tracker and receipt
+    // observers along with it.
+    LaunchedEffect(trackerId) {
         transactionsViewModel.observeTracker(trackerId)
+        transactionsViewModel.observeReceipts(trackerId, null)
+    }
+
+    LaunchedEffect(trackerId, selectedType) {
         transactionsViewModel.observeSources(trackerId, selectedType)
-        transactionsViewModel.observeReceipts(trackerId, "")
     }
 
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.getDefault()) }
@@ -195,7 +209,7 @@ fun HomeScreen(
 
                         Column(Modifier.clickable { onProfileClicked() }) {
                             Text(
-                                text = txState.selectedTracker?.name?:"Unknown Tracker",
+                                text = user?.displayName ?: "Local only",
                                 color = textSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Normal
@@ -206,7 +220,7 @@ fun HomeScreen(
                                     animatedVisibilityScope = animatedVisibilityScope,
                                     resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds()
                                 ),
-                                text = user.displayName ?: "there",
+                                text = tracker?.name ?: "Tracker",
                                 color = textPrimary,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold
@@ -232,20 +246,19 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = user.displayName?.firstOrNull()?.uppercase() ?: "?",
+                                text = user?.displayName?.firstOrNull()?.uppercase() ?: "?",
                                 color = accentPurple,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        IconButton(onClick = {
-                            authViewModel.signOut()
-                            onLogout()
-                        }) {
+                        SyncStatusIndicator(status = syncState.status, onClick = onOpenSettings)
+
+                        IconButton(onClick = onOpenSettings) {
                             Icon(
-                                Icons.AutoMirrored.Outlined.Logout,
-                                contentDescription = "Sign Out",
+                                Icons.Outlined.Settings,
+                                contentDescription = "Sync & settings",
                                 tint = textSecondary,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -258,10 +271,10 @@ fun HomeScreen(
                     Modifier
                         .fillMaxWidth()
                         .sharedBounds(
-                            sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}${tracker.id}"),
+                            sharedContentState = rememberSharedContentState("${SharedKeys.TRACKER_CARD}$trackerId"),
                             animatedVisibilityScope = animatedVisibilityScope,
                         ),
-                    grandTotal = txState.selectedTracker?.grandTotal?.toDouble()?:0.0,
+                    grandTotal = tracker?.grandTotal ?: 0.0,
                     currencyFormatter = currencyFormatter,
                     isExporting = isExporting,
                     onExportCsv = { onExportCsv() },
