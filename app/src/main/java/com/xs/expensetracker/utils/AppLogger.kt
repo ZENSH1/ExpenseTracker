@@ -3,6 +3,7 @@ package com.xs.expensetracker.utils
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.logEvent
 import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.xs.expensetracker.data.sync.SyncLogger
 import com.xs.expensetracker.utils.Utils.log
 
 /**
@@ -20,7 +21,7 @@ import com.xs.expensetracker.utils.Utils.log
 class AppLogger(
     private val crashlytics: FirebaseCrashlytics,
     private val analytics: FirebaseAnalytics
-) {
+) : SyncLogger {
 
     // ─────────────────────────────────────────────────────────────────────────
     // ERROR  — non-fatal Crashlytics report + Analytics error event
@@ -35,11 +36,11 @@ class AppLogger(
      * @param throwable The caught exception
      * @param extra     Optional key/value pairs attached to the Crashlytics report
      */
-    fun error(
+    override fun error(
         tag: String,
         operation: String,
         throwable: Throwable,
-        extra: Map<String, String> = emptyMap()
+        extra: Map<String, String>
     ) {
         // 1. Set Crashlytics keys for grouping in the console
         crashlytics.setCustomKey(KEY_TAG, tag)
@@ -83,9 +84,9 @@ class AppLogger(
      * @param name   Analytics event name — snake_case, max 40 chars
      * @param params Additional Analytics parameters (max 25 per event)
      */
-    fun event(
+    override fun event(
         name: String,
-        params: Map<String, String> = emptyMap()
+        params: Map<String, String>
     ) {
         crashlytics.log("EVENT [$name] $params")
         analytics.logEvent(name.take(40)) {
@@ -101,7 +102,7 @@ class AppLogger(
      * Lightweight breadcrumb visible only when a crash/non-fatal follows.
      * Zero cost in production — no Analytics event fired.
      */
-    fun debug(tag: String, message: String) {
+    override fun debug(tag: String, message: String) {
         crashlytics.log("DEBUG [$tag] $message")
     }
 
