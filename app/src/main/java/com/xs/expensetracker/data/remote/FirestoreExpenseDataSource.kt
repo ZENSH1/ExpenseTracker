@@ -15,13 +15,18 @@ import kotlinx.coroutines.withContext
  * ```
  * trackers/{trackerId}
  *   sources/{sourceId}
- *   receipts/{receiptId}      ← sourceId is a field, not a path segment
+ *     receipts/{receiptId}
  * ```
  *
- * Receipts hang directly off the tracker rather than off a source so an incremental pull costs
- * one query per tracker instead of one per source, and so no collection-group index is needed.
- * Receipts written by older app versions still live under `sources/{id}/receipts`; see
- * [fetchLegacyReceipts].
+ * Receipts live under their source. This is the layout every released version has used, and it
+ * is the one the app is expected to keep: an install that is never upgraded has to go on reading
+ * and writing the same documents as one that is.
+ *
+ * Reading them back does not cost one query per source. A collection-group query on `receipts`
+ * filtered by the denormalised `trackerId` field fetches a whole tracker's receipts in one
+ * round trip — the same query the pre-offline client used for its receipt list. It also spans
+ * every collection named `receipts`, so the flat `trackers/{id}/receipts` documents written by
+ * 0.1.5-alpha are picked up by the same read without a separate rescue pass.
  *
  * Every read goes to [Source.SERVER]. Firestore's own offline cache would happily answer from
  * stale data, which is exactly the wrong thing during a sync: the local database is already the
@@ -36,7 +41,17 @@ class FirestoreExpenseDataSource(
 
     private fun trackerDoc(trackerId: String) = trackersRef.document(trackerId)
     private fun sourcesRef(trackerId: String) = trackerDoc(trackerId).collection(FirebaseConst.SOURCES)
-    private fun receiptsRef(trackerId: String) = trackerDoc(trackerId).collection(FirebaseConst.RECEIPTS)
+
+    private fun receiptsRef(trackerId: String, sourceId: String) =
+        sourcesRef(trackerId).document(sourceId).collection(FirebaseConst.RECEIPTS)
+
+    /**
+     * Every receipt belonging to one tracker, wherever it physically sits. Backed by a
+     * collection-group index on `trackerId`.
+     */
+    private fun receiptsQuery(trackerId: String) =
+        firestore.collectionGroup(FirebaseConst.RECEIPTS)
+            .whereEqualTo(FIELD_TRACKER_ID, trackerId)
 
     // ── Reads ────────────────────────────────────────────────────────────────
 
@@ -72,9 +87,9 @@ class FirestoreExpenseDataSource(
             sourceDocs.documents.mapNotNullTo(sources) { it.toRemoteSource(trackerId) }
 
             val receiptDocs = if (since <= 0L) {
-                receiptsRef(trackerId).get(Source.SERVER).await()
+                receiptsQuery(trackerId).get(Source.SERVER).await()
             } else {
-                receiptsRef(trackerId)
+                receiptsQuery(trackerId)
                     .whereGreaterThanOrEqualTo(FIELD_UPDATED_AT, since)
                     .get(Source.SERVER)
                     .await()
@@ -82,27 +97,16 @@ class FirestoreExpenseDataSource(
             receiptDocs.documents.mapNotNullTo(receipts) { it.toRemoteReceipt(trackerId) }
         }
 
-        RemoteSnapshot(sources = sources, receipts = receipts)
-    }
-
-    override suspend fun fetchLegacyReceipts(
-        trackerId: String,
-        sourceIds: List<String>
-    ): List<RemoteReceipt> = withContext(Dispatchers.IO) {
-        val out = mutableListOf<RemoteReceipt>()
-        for (sourceId in sourceIds) {
-            val docs = sourcesRef(trackerId)
-                .document(sourceId)
-                .collection(FirebaseConst.RECEIPTS)
-                .get(Source.SERVER)
-                .await()
-            docs.documents.mapNotNullTo(out) { doc ->
-                // Legacy documents predate both fields; default them so the record imports
-                // cleanly and then behaves like any other from that point on.
-                doc.toRemoteReceipt(trackerId)?.copy(sourceId = sourceId)
+        RemoteSnapshot(
+            sources = sources,
+            // One receipt can answer the query from two places: 0.1.5-alpha wrote it flat, and a
+            // later edit rewrote it under its source. Same id, two documents. Keep the newer and
+            // let the stale copy be swept by [purgeTombstones] or [deleteTrackerTree], which
+            // both sweep on the same query.
+            receipts = receipts.groupBy { it.id }.values.mapNotNull { copies ->
+                copies.maxByOrNull { it.updatedAt }
             }
-        }
-        out
+        )
     }
 
     // ── Writes ───────────────────────────────────────────────────────────────
@@ -110,12 +114,22 @@ class FirestoreExpenseDataSource(
     override suspend fun push(push: RemotePush) = withContext(Dispatchers.IO) {
         if (push.isEmpty) return@withContext
 
-        // Parents first: a source or receipt whose tracker document does not exist yet would be
-        // unreadable by the security rules that gate access on the parent.
+        // Parents first. Within one batch the order is irrelevant -- a batch is atomic, and the
+        // rules judge child writes on the post-commit state, so a tracker written alongside its
+        // children is visible to them. It matters across chunk boundaries: the chunks below
+        // commit as separate batches, and children landing in an earlier chunk than their
+        // tracker would be rejected outright by the rules that gate access on the parent.
         val writes = buildList<Pair<com.google.firebase.firestore.DocumentReference, Map<String, Any?>>> {
             push.trackers.forEach { add(trackerDoc(it.id) to it.toMap()) }
             push.sources.forEach { add(sourcesRef(it.trackerId).document(it.id) to it.toMap()) }
-            push.receipts.forEach { add(receiptsRef(it.trackerId).document(it.id) to it.toMap()) }
+            push.receipts.forEach { receipt ->
+                // A receipt is addressed by its source, so one without a source has nowhere to
+                // go. Locally that cannot happen; a record that reaches here without one is
+                // corrupt, and inventing a path for it would strand it where nothing looks.
+                if (receipt.sourceId.isNotBlank()) {
+                    add(receiptsRef(receipt.trackerId, receipt.sourceId).document(receipt.id) to receipt.toMap())
+                }
+            }
         }
 
         writes.chunked(BATCH_LIMIT).forEach { chunk ->
@@ -127,13 +141,9 @@ class FirestoreExpenseDataSource(
 
     override suspend fun deleteTrackerTree(trackerId: String) = withContext(Dispatchers.IO) {
         val refs = buildList<com.google.firebase.firestore.DocumentReference> {
-            receiptsRef(trackerId).get(Source.SERVER).await().documents.forEach { add(it.reference) }
-            sourcesRef(trackerId).get(Source.SERVER).await().documents.forEach { sourceDoc ->
-                // Sweep any legacy nested receipts too, or they would outlive their tracker.
-                sourceDoc.reference.collection(FirebaseConst.RECEIPTS)
-                    .get(Source.SERVER).await().documents.forEach { add(it.reference) }
-                add(sourceDoc.reference)
-            }
+            // Spans both receipt layouts, so nothing outlives its tracker.
+            receiptsQuery(trackerId).get(Source.SERVER).await().documents.forEach { add(it.reference) }
+            sourcesRef(trackerId).get(Source.SERVER).await().documents.forEach { add(it.reference) }
             add(trackerDoc(trackerId))
         }
 
@@ -146,7 +156,7 @@ class FirestoreExpenseDataSource(
 
     override suspend fun purgeTombstones(trackerId: String, before: Long) = withContext(Dispatchers.IO) {
         val stale = buildList<com.google.firebase.firestore.DocumentReference> {
-            receiptsRef(trackerId)
+            receiptsQuery(trackerId)
                 .whereEqualTo(FIELD_DELETED, true)
                 .whereLessThan(FIELD_UPDATED_AT, before)
                 .get(Source.SERVER).await().documents.forEach { add(it.reference) }
@@ -204,7 +214,7 @@ class FirestoreExpenseDataSource(
         return RemoteReceipt(
             id = id,
             trackerId = trackerId,
-            sourceId = getString(FIELD_SOURCE_ID).orEmpty(),
+            sourceId = getString(FIELD_SOURCE_ID)?.takeIf { it.isNotBlank() } ?: sourceIdFromPath,
             type = getString(FirebaseConst.TYPE) ?: TransactionType.EXPENSE.name,
             name = name,
             description = getString(FIELD_DESCRIPTION).orEmpty(),
@@ -215,6 +225,17 @@ class FirestoreExpenseDataSource(
             deleted = getBoolean(FIELD_DELETED) ?: false
         )
     }
+
+    /**
+     * The owning source taken from the document's own path, for receipts written before
+     * `sourceId` was stored as a field. Empty for a flat `trackers/{id}/receipts` document,
+     * whose grandparent is the tracker rather than a source.
+     */
+    private val DocumentSnapshot.sourceIdFromPath: String
+        get() {
+            val parent = reference.parent.parent ?: return ""
+            return if (parent.parent.id == FirebaseConst.SOURCES) parent.id else ""
+        }
 
     private fun RemoteTracker.toMap(): Map<String, Any?> = mapOf(
         FirebaseConst.NAME to name,
@@ -228,7 +249,7 @@ class FirestoreExpenseDataSource(
 
     private fun RemoteSource.toMap(): Map<String, Any?> = mapOf(
         FirebaseConst.NAME to name,
-        "trackerId" to trackerId,
+        FIELD_TRACKER_ID to trackerId,
         FirebaseConst.TYPE to type,
         FirebaseConst.CREATED_AT to createdAt,
         FIELD_UPDATED_AT to updatedAt,
@@ -237,7 +258,7 @@ class FirestoreExpenseDataSource(
     )
 
     private fun RemoteReceipt.toMap(): Map<String, Any?> = mapOf(
-        "trackerId" to trackerId,
+        FIELD_TRACKER_ID to trackerId,
         FIELD_SOURCE_ID to sourceId,
         FirebaseConst.TYPE to type,
         FirebaseConst.NAME to name,
@@ -253,6 +274,7 @@ class FirestoreExpenseDataSource(
         /** Firestore caps a batch at 500 operations; leave headroom. */
         const val BATCH_LIMIT = 450
 
+        const val FIELD_TRACKER_ID = "trackerId"
         const val FIELD_UPDATED_AT = "updatedAt"
         const val FIELD_DELETED = "deleted"
         const val FIELD_SOURCE_ID = "sourceId"

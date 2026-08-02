@@ -22,15 +22,6 @@ interface RemoteExpenseDataSource {
      */
     suspend fun fetchChanges(uid: String, trackerIds: List<String>, since: Long): RemoteSnapshot
 
-    /**
-     * Receipts written by app versions that nested them under `sources/{id}/receipts`.
-     *
-     * Offline mode moved receipts to a direct subcollection of the tracker so an incremental
-     * pull is one query per tracker instead of one per source. Without this one-time rescue
-     * read, an existing user's entire transaction history would look empty after upgrading.
-     */
-    suspend fun fetchLegacyReceipts(trackerId: String, sourceIds: List<String>): List<RemoteReceipt>
-
     /** Writes records and tombstones. Chunked internally to stay under Firestore batch limits. */
     suspend fun push(push: RemotePush)
 

@@ -298,9 +298,6 @@ class FakeRemote : RemoteExpenseDataSource {
     val sources = linkedMapOf<String, RemoteSource>()
     val receipts = linkedMapOf<String, RemoteReceipt>()
 
-    /** Receipts stored under the pre-offline `sources/{id}/receipts` path. */
-    val legacyReceipts = mutableListOf<RemoteReceipt>()
-
     val pushes = mutableListOf<RemotePush>()
     var failWith: Throwable? = null
 
@@ -327,9 +324,6 @@ class FakeRemote : RemoteExpenseDataSource {
             receipts = receipts.values.filter { it.trackerId in trackerIds && it.updatedAt >= since }
         )
     }
-
-    override suspend fun fetchLegacyReceipts(trackerId: String, sourceIds: List<String>) =
-        legacyReceipts.filter { it.trackerId == trackerId && it.sourceId in sourceIds }
 
     override suspend fun push(push: RemotePush) {
         failWith?.let { throw it }
