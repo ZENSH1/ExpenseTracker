@@ -4,9 +4,14 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.MemoryCacheSettings
 import com.google.firebase.firestore.firestoreSettings
-import com.xs.expensetracker.utils.GoogleAuthManager
 import org.koin.dsl.module
 
+/**
+ * SDK singletons only, all of them reached through `getInstance()` rather than a constructor.
+ * App-owned classes belong in the module for their layer — keeping this one to the Firebase
+ * boundary is what lets [com.xs.expensetracker.di.KoinModulesTest] verify everything else,
+ * since these types have no constructor for it to walk.
+ */
 val firebaseModule = module {
 
     single<FirebaseFirestore> {
@@ -21,6 +26,4 @@ val firebaseModule = module {
     }
 
     single<FirebaseAuth> { FirebaseAuth.getInstance() }
-
-    single<GoogleAuthManager> { GoogleAuthManager(firebaseAuth = get()) }
 }

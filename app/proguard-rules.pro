@@ -12,7 +12,14 @@
 #   public *;
 #}
 # ---------------- Firestore ----------------
+# Anything Firestore maps with toObject()/toObject(Class) is bound by reflection on
+# field names, so R8 renaming a field silently unbinds it: the document still arrives,
+# every property decodes to its default, and the screen renders empty rows rather than
+# failing. The domain models live outside `data.**` and were being renamed -- Tracker
+# survived only because @Serializable happens to be kept below, which is why tracker
+# lists worked while sources and receipts came back blank.
 -keep class com.xs.expensetracker.data.** { *; }
+-keep class com.xs.expensetracker.domain.data.models.** { *; }
 -keepclassmembers class * { public <init>(); }
 -keepattributes *Annotation*
 

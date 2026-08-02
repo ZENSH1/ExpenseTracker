@@ -7,6 +7,7 @@ import com.xs.expensetracker.domain.repo.ExpenseTrackerRepository
 import com.xs.expensetracker.domain.repo.ExpenseTrackerRepositoryImpl
 import com.xs.expensetracker.domain.repo.SyncRepository
 import com.xs.expensetracker.domain.repo.SyncRepositoryImpl
+import com.xs.expensetracker.utils.GoogleAuthManager
 import org.koin.dsl.module
 
 val repositoryModule = module {
@@ -27,6 +28,8 @@ val repositoryModule = module {
     }
 
     single<AuthRepository> { AuthRepositoryImpl(auth = get()) }
+
+    single<GoogleAuthManager> { GoogleAuthManager(firebaseAuth = get()) }
 
     single<SyncRepository> {
         SyncRepositoryImpl(

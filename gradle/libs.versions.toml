@@ -53,6 +53,7 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koinAndroid" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koinAndroidxCompose" }
+koin-test = { module = "io.insert-koin:koin-test", version.ref = "koinAndroid" }
 google-firebase-firestore-ktx = { group = "com.google.firebase", name = "firebase-firestore" }
 play-services-ads = { module = "com.google.android.gms:play-services-ads", version.ref = "playServicesAds" }
 # Core Navigation 3 libraries

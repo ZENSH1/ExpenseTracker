@@ -316,20 +316,11 @@ class SyncEngine(
         return SyncOutcome.Success(pushed = pushed, pulled = reconciled.applied)
     }
 
-    /** Full remote read, including receipts left behind by the pre-offline document layout. */
+    /** Full remote read. */
     private suspend fun fetchEverything(uid: String): RemoteSnapshot {
         val trackers = remote.fetchTrackers(uid)
-        val ids = trackers.map { it.id }
-        val changes = remote.fetchChanges(uid, ids, since = 0L)
-
-        val knownReceiptIds = changes.receipts.map { it.id }.toSet()
-        val legacy = trackers.flatMap { tracker ->
-            val sourceIds = changes.sources.filter { it.trackerId == tracker.id }.map { it.id }
-            if (sourceIds.isEmpty()) emptyList()
-            else remote.fetchLegacyReceipts(tracker.id, sourceIds).filter { it.id !in knownReceiptIds }
-        }
-
-        return changes.copy(trackers = trackers, receipts = changes.receipts + legacy)
+        val changes = remote.fetchChanges(uid, trackers.map { it.id }, since = 0L)
+        return changes.copy(trackers = trackers)
     }
 
     // ─────────────────────────────────────────────────────────────────────────

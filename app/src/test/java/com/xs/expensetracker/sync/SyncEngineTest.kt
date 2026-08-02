@@ -492,14 +492,14 @@ class SyncEngineTest {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `receipts stored under the old nested path are rescued on first import`() = runTest {
+    fun `receipts written before the sync fields existed are imported intact`() = runTest {
         identity.uid = uid
         remote.trackers["t1"] = remoteTracker("t1", updatedAt = 500)
         remote.sources["s1"] = RemoteSource(
             id = "s1", trackerId = "t1", name = "Salary",
             type = TransactionType.INCOME.name, updatedAt = 500
         )
-        remote.legacyReceipts += RemoteReceipt(
+        remote.receipts["old1"] = RemoteReceipt(
             id = "old1", trackerId = "t1", sourceId = "s1",
             name = "Legacy payslip", amount = 42.0, updatedAt = 400, type = ""
         )

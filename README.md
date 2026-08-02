@@ -134,24 +134,35 @@ trackers/{trackerId}
 ├── ownerId: String
 ├── grandTotal: Double          # net balance (income − expenses)
 ├── sharedWith: List<String>    # user IDs with access
-├── createdAt: Timestamp
+├── createdAt: Long             # epoch millis
+├── updatedAt: Long             # epoch millis
+├── deleted: Boolean            # tombstone
 │
 └── sources/{sourceId}
     ├── name: String
+    ├── trackerId: String
     ├── type: "INCOME" | "EXPENSE"
     ├── totalAmount: Double     # sum of receipts in this source
-    ├── createdAt: Timestamp
+    ├── createdAt / updatedAt: Long
+    ├── deleted: Boolean
     │
     └── receipts/{receiptId}
         ├── name: String
         ├── description: String
+        ├── trackerId: String
+        ├── sourceId: String
         ├── amount: Double
         ├── type: "INCOME" | "EXPENSE"
-        ├── date: String
-        └── createdAt: Timestamp
+        ├── date: Long
+        ├── createdAt / updatedAt: Long
+        └── deleted: Boolean
 ```
 
-All financial writes (add, update, delete receipt) use **Firestore transactions** to atomically update the source total and tracker grand total, ensuring data consistency.
+Receipts belong to their source, as they always have. Reading them does not cost a query per source: a collection-group query on `receipts` filtered by the denormalised `trackerId` fetches a whole tracker in one round trip — the same query the first release used for its receipt list.
+
+Room is the source of truth on the device. Firestore is a backup and sync channel: writes go to Room first and reach Firestore through the sync engine in batches, and deletes travel as tombstones so they propagate. `updatedAt` and `deleted` are the only fields the offline work added, and clients that predate them ignore them.
+
+See **[docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md)** for the field-level contract, the access policy, and the index list.
 
 ---
 
@@ -177,7 +188,23 @@ Screen transitions use 350ms slide + fade animations with shared element transit
 2. Open the project in Android Studio.
 3. Add your own `google-services.json` from the Firebase Console to `app/`.
 4. Set up a Firebase project with Authentication (Google provider), Firestore, Analytics, Crashlytics, and Performance Monitoring enabled.
-5. Update the `GOOGLE_WEB_CLIENT_ID` in the app constants with your OAuth 2.0 Web Client ID.
+5. Create `app/src/main/java/com/xs/expensetracker/utils/AppConst.kt` with your OAuth 2.0 Web
+   Client ID. The file is git-ignored, so a fresh clone will not compile until you add it:
+
+   ```kotlin
+   package com.xs.expensetracker.utils
+
+   object AppConst {
+       const val GOOGLE_WEB_CLIENT_ID = "<your-id>.apps.googleusercontent.com"
+   }
+   ```
 6. Build and run on a device or emulator running Android 7.0+.
 
+`google-services.json`, `AppConst.kt` and the release keystore are never committed. CI restores
+them from repository secrets — see [.github/workflows/release-internal.yml](.github/workflows/release-internal.yml).
+
 ---
+
+## License
+
+Released under the [MIT License](LICENSE). Copyright (c) 2026 Syed Zain ul Abidin Sherazi.

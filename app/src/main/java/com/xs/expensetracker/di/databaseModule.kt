@@ -8,8 +8,10 @@ import com.xs.expensetracker.data.prefs.syncDataStore
 import com.xs.expensetracker.data.remote.FirestoreExpenseDataSource
 import com.xs.expensetracker.data.remote.RemoteExpenseDataSource
 import com.xs.expensetracker.data.sync.SyncEngine
+import com.xs.expensetracker.data.sync.SyncIdentity
 import com.xs.expensetracker.data.sync.SyncScheduler
 import org.koin.android.ext.koin.androidContext
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 val databaseModule = module {
@@ -22,7 +24,13 @@ val databaseModule = module {
     single { get<ExpenseDatabase>().syncDao() }
 
     single { SyncPreferences(androidContext().syncDataStore) }
-    single { IdentityProvider(authRepository = get(), preferences = get()) }
+
+    // Bound under both types deliberately. The repository and TransactionsViewModel ask for the
+    // concrete IdentityProvider, SyncEngine asks for the SyncIdentity interface, and they have
+    // to be the same instance -- two identities would let the engine sync against one uid while
+    // the UI reads another. Without the bind, resolving SyncEngine throws
+    // NoDefinitionFoundException and the app dies building its first ViewModel.
+    single { IdentityProvider(authRepository = get(), preferences = get()) } bind SyncIdentity::class
 
     single<RemoteExpenseDataSource> { FirestoreExpenseDataSource(firestore = get()) }
 
@@ -39,7 +47,7 @@ val databaseModule = module {
             remote = get(),
             identity = get(),
             preferences = get(),
-            logger = get<com.xs.expensetracker.utils.AppLogger>()
+            logger = get()
         )
     }
 }

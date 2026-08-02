@@ -24,12 +24,28 @@ keystore.properties
 *.p12
 service-account*.json
 play-service-account*.json
+*.pepk
+*.der
+*.pem
+.env
+.env.*
 
 /build
 /captures
 .externalNativeBuild
 .cxx
 local.properties
+
+# Byte-compiled helper scripts used by the release workflow.
+__pycache__/
+*.py[cod]
 /.claude/worktrees/interesting-brahmagupta/
 /.claude/*
 *.rules
+# Security rules are not a secret and are the deployed source of truth -- the blanket
+# *.rules pattern above kept firestore.rules out of the repo entirely.
+!firestore.rules
+
+# Firestore rules test harness
+firestore-tests/node_modules/
+.firebaserc
