@@ -1,0 +1,116 @@
+rules_version = '2';
+
+// Security rules for the tracker / source / receipt layout.
+//
+//   trackers/{trackerId}
+//     sources/{sourceId}
+//       receipts/{receiptId}   <- where receipts live, in every released version
+//     receipts/{receiptId}     <- flat variant written only by 0.1.5-alpha
+//
+// Receipts belong to their source. 0.1.5-alpha briefly wrote them flat under the tracker
+// instead; the app writes them back under the source now, but nothing rewrites the documents
+// that build already created, so both locations stay readable and writable. Treating either as
+// read-only locks some install out of its own data, which is exactly what happened before.
+//
+// Access is granted by membership of the parent tracker's `sharedWith` array. Children are
+// gated on a lookup of that parent rather than on a copy of the member list, so revoking a
+// share takes effect immediately and cannot be defeated by a stale field on a child document.
+//
+// See docs/DATABASE_SCHEMA.md for the field-level contract.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Every field is read through `get(field, default)`. Documents written by older app
+    // versions predate `updatedAt`, `deleted` and in the earliest cases `sharedWith`, and a
+    // bare `resource.data.sharedWith` on a document missing the field is an evaluation error,
+    // which Firestore reports as permission-denied. Defaulting turns "field absent" into a
+    // plain false instead of locking the user out.
+    function canAccess(tracker) {
+      return isSignedIn()
+        && (request.auth.uid in tracker.get('sharedWith', [])
+            || request.auth.uid == tracker.get('ownerId', ''));
+    }
+
+    // The owner fallback above is deliberate: it is the safety net that keeps a user in their
+    // own tracker if `sharedWith` is missing, malformed, or was emptied by a collaborator.
+
+    function trackerData(trackerId) {
+      return get(/databases/$(database)/documents/trackers/$(trackerId)).data;
+    }
+
+    // State *after* the current write commits. A batch that creates a tracker and its sources
+    // together is atomic, so `get()` still sees no tracker while those children are evaluated
+    // and would deny the whole batch no matter what order the operations were added in.
+    function trackerDataAfter(trackerId) {
+      return getAfter(/databases/$(database)/documents/trackers/$(trackerId)).data;
+    }
+
+    // Read/delete gate. Deletes use the *before* state on purpose: deleting a whole tracker
+    // tree removes the parent in the same batch, and `getAfter` would find nothing there.
+    function isMember(trackerId) {
+      return canAccess(trackerData(trackerId));
+    }
+
+    // Create/update gate.
+    function isMemberAfter(trackerId) {
+      return canAccess(trackerDataAfter(trackerId));
+    }
+
+    match /trackers/{trackerId} {
+      // Covers `get` and both list queries the clients run: `sharedWith array-contains uid`
+      // (0.1.5+) and `sharedWith array-contains-any [uid]` ordered by createdAt (0.1.0).
+      allow read: if canAccess(resource.data);
+
+      // The creator must include themselves, otherwise they would write a document they
+      // immediately lose access to.
+      allow create: if isSignedIn()
+        && request.resource.data.get('ownerId', '') == request.auth.uid
+        && request.auth.uid in request.resource.data.get('sharedWith', []);
+
+      // Any member may update — that is what makes a shared tracker collaborative. Ownership
+      // itself is pinned so a collaborator cannot take the document over.
+      allow update: if canAccess(resource.data)
+        && request.resource.data.get('ownerId', '') == resource.data.get('ownerId', '');
+
+      // Hard deletion is reserved for the owner (account deletion). Everyday deletes are soft
+      // deletes, which travel through `update` above as a tombstone.
+      allow delete: if isSignedIn() && resource.data.get('ownerId', '') == request.auth.uid;
+
+      match /sources/{sourceId} {
+        allow read, delete: if isMember(trackerId);
+        allow create, update: if isMemberAfter(trackerId);
+
+        // Where receipts live.
+        match /receipts/{receiptId} {
+          allow read, delete: if isMember(trackerId);
+          allow create, update: if isMemberAfter(trackerId);
+        }
+      }
+
+      // The flat variant 0.1.5-alpha wrote. Still writable so a tombstone can reach the copies
+      // it left behind, rather than stranding them where only a purge can see them.
+      match /receipts/{receiptId} {
+        allow read, delete: if isMember(trackerId);
+        allow create, update: if isMemberAfter(trackerId);
+      }
+    }
+
+    // Collection-group reads. `collectionGroup("receipts")` is matched *only* by a recursive
+    // wildcard — the path-scoped rules above never apply to it, so without this block every
+    // receipt list fails with permission-denied for every user including the owner. Both
+    // client generations depend on it: it is how 0.1.0 renders its receipt list, and how the
+    // current sync pulls a tracker's receipts without one query per source.
+    //
+    // Read-only by design. Writes stay on the explicit paths above, where the tracker is taken
+    // from the document's location; granting writes here would take it from a `trackerId`
+    // field the client controls, letting a member of one tracker plant documents under another.
+    match /{path=**}/receipts/{receiptId} {
+      allow read: if isMember(resource.data.get('trackerId', ''));
+    }
+  }
+}
