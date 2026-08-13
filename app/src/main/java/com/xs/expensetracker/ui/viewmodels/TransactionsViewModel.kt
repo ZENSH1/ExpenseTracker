@@ -14,6 +14,8 @@ import com.xs.expensetracker.usecases.TrackerUseCase
 import com.xs.expensetracker.utils.ExportManager
 import com.xs.expensetracker.utils.events.TrackerUiEvent
 import com.xs.expensetracker.utils.events.TransactionUiEvent
+import com.xs.expensetracker.utils.states.ActionResult
+import com.xs.expensetracker.utils.states.ActionTarget
 import com.xs.expensetracker.utils.states.TransactionsUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +43,9 @@ class TransactionsViewModel(
     private var observeSourcesJob: Job? = null
     private var observeReceiptsJob: Job? = null
     private var observeTrackerJob: Job? = null
+
+    /** Distinguishes one success from the next when both carry the same message. */
+    private var nextResultId = 1L
 
     init {
         // Ownership decides the "shared with you" badge and which menu actions appear. It has to
@@ -79,34 +84,39 @@ class TransactionsViewModel(
 
     fun createTracker(name: String) {
         viewModelScope.launch {
-            trackerUseCase.createTracker(name).collect(::handleTrackerEvent)
+            trackerUseCase.createTracker(name).collect { handleTrackerEvent("Tracker created", it) }
         }
     }
 
     fun updateTrackerName(trackerId: String, newName: String) {
         viewModelScope.launch {
-            trackerUseCase.updateTrackerName(trackerId, newName).collect(::handleTrackerEvent)
+            trackerUseCase.updateTrackerName(trackerId, newName)
+                .collect { handleTrackerEvent("Tracker renamed", it) }
         }
     }
 
     fun shareTracker(trackerId: String, userIdToShare: String) {
         viewModelScope.launch {
-            trackerUseCase.shareTracker(trackerId, userIdToShare).collect(::handleTrackerEvent)
+            trackerUseCase.shareTracker(trackerId, userIdToShare)
+                .collect { handleTrackerEvent("Tracker shared", it) }
         }
     }
 
     fun deleteTracker(trackerId: String) {
         viewModelScope.launch {
-            trackerUseCase.deleteTracker(trackerId).collect(::handleTrackerEvent)
+            trackerUseCase.deleteTracker(trackerId)
+                .collect { handleTrackerEvent("Tracker deleted", it) }
         }
     }
 
-    private fun handleTrackerEvent(event: TrackerUiEvent) {
-        _uiState.update {
-            when (event) {
-                is TrackerUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
-                is TrackerUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
-                is TrackerUiEvent.Error -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
+    private fun handleTrackerEvent(successMessage: String, event: TrackerUiEvent) {
+        when (event) {
+            is TrackerUiEvent.Loading -> _uiState.update {
+                it.copy(isLoading = true, error = null, loadingMessage = event.message)
+            }
+            is TrackerUiEvent.Success -> publishSuccess(ActionTarget.TRACKER, successMessage)
+            is TrackerUiEvent.Error -> _uiState.update {
+                it.copy(isLoading = false, error = event.message, loadingMessage = null)
             }
         }
     }
@@ -126,19 +136,22 @@ class TransactionsViewModel(
 
     fun createSource(trackerId: String, name: String, type: TransactionType) {
         viewModelScope.launch {
-            sourceUseCase.createSource(trackerId, name, type).collect(::handleTransactionEvent)
+            sourceUseCase.createSource(trackerId, name, type)
+                .collect { handleTransactionEvent(ActionTarget.SOURCE, "Source created", it) }
         }
     }
 
     fun updateSource(sourceId: String, name: String, type: TransactionType) {
         viewModelScope.launch {
-            sourceUseCase.updateSource(sourceId, name, type).collect(::handleTransactionEvent)
+            sourceUseCase.updateSource(sourceId, name, type)
+                .collect { handleTransactionEvent(ActionTarget.SOURCE, "Source updated", it) }
         }
     }
 
     fun deleteSource(trackerId: String, sourceId: String) {
         viewModelScope.launch {
-            sourceUseCase.deleteSource(trackerId, sourceId).collect(::handleTransactionEvent)
+            sourceUseCase.deleteSource(trackerId, sourceId)
+                .collect { handleTransactionEvent(ActionTarget.SOURCE, "Source deleted", it) }
         }
     }
 
@@ -167,30 +180,47 @@ class TransactionsViewModel(
     ) {
         viewModelScope.launch {
             receiptUseCase.addReceipt(trackerId, sourceId, type, name, description, amount, date)
-                .collect(::handleTransactionEvent)
+                .collect { handleTransactionEvent(ActionTarget.RECEIPT, "Receipt added", it) }
         }
     }
 
     fun updateReceipt(receipt: TransactionReceipt) {
         viewModelScope.launch {
-            receiptUseCase.updateReceipt(receipt).collect(::handleTransactionEvent)
+            receiptUseCase.updateReceipt(receipt)
+                .collect { handleTransactionEvent(ActionTarget.RECEIPT, "Receipt updated", it) }
         }
     }
 
     fun deleteReceipt(receiptId: String) {
         viewModelScope.launch {
-            receiptUseCase.deleteReceipt(receiptId).collect(::handleTransactionEvent)
+            receiptUseCase.deleteReceipt(receiptId)
+                .collect { handleTransactionEvent(ActionTarget.RECEIPT, "Receipt deleted", it) }
         }
     }
 
-    private fun handleTransactionEvent(event: TransactionUiEvent) {
-        _uiState.update {
-            when (event) {
-                is TransactionUiEvent.Loading -> it.copy(isLoading = true, error = null, loadingMessage = event.message)
-                is TransactionUiEvent.Success -> it.copy(isLoading = false, loadingMessage = null)
-                is TransactionUiEvent.Error -> it.copy(isLoading = false, error = event.message, loadingMessage = null)
+    private fun handleTransactionEvent(
+        target: ActionTarget,
+        successMessage: String,
+        event: TransactionUiEvent
+    ) {
+        when (event) {
+            is TransactionUiEvent.Loading -> _uiState.update {
+                it.copy(isLoading = true, error = null, loadingMessage = event.message)
+            }
+            is TransactionUiEvent.Success -> publishSuccess(target, successMessage)
+            is TransactionUiEvent.Error -> _uiState.update {
+                it.copy(isLoading = false, error = event.message, loadingMessage = null)
             }
         }
+    }
+
+    /**
+     * Records a completed write. The id is taken outside the `update` block because that
+     * lambda can be re-run on contention, which would burn two ids for one result.
+     */
+    private fun publishSuccess(target: ActionTarget, message: String) {
+        val result = ActionResult(nextResultId++, target, message)
+        _uiState.update { it.copy(isLoading = false, loadingMessage = null, lastResult = result) }
     }
 
     // ------------------------------------------------
@@ -199,6 +229,11 @@ class TransactionsViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    /** Called once a screen has shown the confirmation, so it is not shown again. */
+    fun consumeResult() {
+        _uiState.update { it.copy(lastResult = null) }
     }
 
     fun clearAllObservers() {

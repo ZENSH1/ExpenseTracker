@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.domain.data.models.Tracker
+import com.xs.expensetracker.ui.components.reusables.ActionResultBar
 import com.xs.expensetracker.ui.components.reusables.SyncStatusIndicator
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.AuthViewModel
@@ -258,6 +259,15 @@ fun TrackerSelectionScreen(
                     )
                 }
             }
+
+            // ── Save confirmation ────────────────────────────────────────────
+            ActionResultBar(
+                result = txState.lastResult,
+                onConsume = transactionsViewModel::consumeResult,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 90.dp)
+            )
         }
     }
     // ── Dialogs ──────────────────────────────────────────────────────────

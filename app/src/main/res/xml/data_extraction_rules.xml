@@ -1,19 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+   Backup and transfer policy for API 31+. Replaces the commented-out Android Studio
+   sample, every element of which was inert, so the expense database was being copied
+   to Google cloud backup by default.
+
+   The split below is deliberate.
+
+   cloud-backup excludes the ledger. A copy of every receipt, source and tracker sitting
+   in Google's backup store is a second place that data can be reached from, and it buys
+   the user nothing: signed-in users already have Firestore as their durable copy.
+
+   device-transfer is left unspecified, which means "transfer everything". A direct
+   phone-to-phone migration is initiated by the user, moves straight between the two
+   devices, and is where losing the local-only data of a user who never signed in would
+   actually hurt.
+
+   To exclude the ledger from device transfer too, repeat the same exclude elements
+   inside a device-transfer block. To drop out of both entirely, set
+   android:allowBackup="false" in AndroidManifest.xml.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- Room. The -wal and -shm sidecars hold committed rows that have not been
+             checkpointed back into the main file yet, so excluding only the .db would
+             still leak recent transactions. -->
+        <exclude domain="database" path="expense_tracker.db" />
+        <exclude domain="database" path="expense_tracker.db-wal" />
+        <exclude domain="database" path="expense_tracker.db-shm" />
+
+        <!-- DataStore (sync_prefs): last-sync cursors and the account identity. -->
+        <exclude domain="file" path="datastore/" />
     </cloud-backup>
-    <!--
-    <device-transfer>
-        <include .../>
-        <exclude .../>
-    </device-transfer>
-    -->
 </data-extraction-rules>

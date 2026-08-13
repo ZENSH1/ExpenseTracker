@@ -18,6 +18,8 @@ import com.xs.expensetracker.domain.data.enums.TransactionType
 import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.ui.theme.*
 import com.xs.expensetracker.ui.viewmodels.TransactionsViewModel
+import com.xs.expensetracker.utils.states.ActionTarget
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -33,6 +35,7 @@ fun ReceiptFormModal(
 ) {
     val txState by transactionsViewModel.uiState.collectAsState()
     val sheetState = rememberModalBottomSheetState(true)
+    val scope = rememberCoroutineScope()
     val isEditing = editingReceipt != null
     val dateFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
 
@@ -42,21 +45,37 @@ fun ReceiptFormModal(
     var selectedSourceId by remember { mutableStateOf(editingReceipt?.sourceId ?: "") }
     var sourceDropdownExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var selectedDateMillis by remember { mutableStateOf(editingReceipt?.date ?: System.currentTimeMillis()) }
+    var selectedDateMillis by remember { mutableLongStateOf(editingReceipt?.date ?: System.currentTimeMillis()) }
 
     val selectedSource = txState.sources.find { it.id == selectedSourceId }
     val activeColor = if (selectedSource?.type == TransactionType.INCOME) incomeColor else expenseColor
 
-    LaunchedEffect(txState.sources) {
-        if (selectedSourceId.isEmpty() && txState.sources.isNotEmpty()) {
-            selectedSourceId = txState.sources.first().id
+    /** Lets the sheet slide out instead of blinking away the instant state changes. */
+    fun close() {
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) onDismiss()
         }
     }
 
-    var wasLoading by remember { mutableStateOf(false) }
-    LaunchedEffect(txState.isLoading) {
-        if (wasLoading && !txState.isLoading && txState.error == null) onDismiss()
-        wasLoading = txState.isLoading
+    // A failure from an earlier action elsewhere on the screen would otherwise greet the user
+    // inside a form they have not submitted yet.
+    LaunchedEffect(Unit) { transactionsViewModel.clearError() }
+
+    LaunchedEffect(txState.sources, initialType) {
+        if (selectedSourceId.isEmpty() && txState.sources.isNotEmpty()) {
+            // Default to a source of the type the user was already looking at, so opening the
+            // form from the Income tab does not silently pre-select an expense source.
+            selectedSourceId = (txState.sources.firstOrNull { it.type == initialType }
+                ?: txState.sources.first()).id
+        }
+    }
+
+    // Close on a save that actually landed. Anything already in state when the sheet opened
+    // belongs to an earlier action and must not close it.
+    val resultIdAtOpen = remember { txState.lastResult?.id ?: 0L }
+    LaunchedEffect(txState.lastResult) {
+        val result = txState.lastResult ?: return@LaunchedEffect
+        if (result.id > resultIdAtOpen && result.target == ActionTarget.RECEIPT) close()
     }
 
     if (showDatePicker) {
@@ -103,7 +122,7 @@ fun ReceiptFormModal(
                     Text(if (isEditing) "Edit Receipt" else "New Receipt", color = textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     Text(if (isEditing) "Update transaction details" else "Record a transaction", color = textSecondary, fontSize = 13.sp)
                 }
-                IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Close", tint = textSecondary) }
+                IconButton(onClick = { close() }) { Icon(Icons.Filled.Close, contentDescription = "Close", tint = textSecondary) }
             }
 
             // Source picker
@@ -118,7 +137,12 @@ fun ReceiptFormModal(
                         OutlinedTextField(
                             value = selectedSource?.name ?: "Select a source",
                             onValueChange = {}, readOnly = true,
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            // PrimaryNotEditable, not the deprecated no-arg menuAnchor(): this
+                            // field is a picker, and the old default anchors it as an editable
+                            // autocomplete. That asks for the soft keyboard on tap and collapses
+                            // the menu again as soon as the input state settles, which read as
+                            // the dropdown dismissing itself the moment anything was typed.
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceDropdownExpanded) },
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -202,7 +226,7 @@ fun ReceiptFormModal(
                     // it between an income and an expense source flips its sign as expected.
                     val resolvedType = selectedSource?.type
                         ?: editingReceipt?.type
-                        ?: TransactionType.EXPENSE
+                        ?: initialType
                     if (editingReceipt != null) {
                         transactionsViewModel.updateReceipt(
                             editingReceipt.copy(

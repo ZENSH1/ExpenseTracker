@@ -21,8 +21,8 @@ android {
         targetSdk = 36
         // CI injects VERSION_CODE / VERSION_NAME (see .github/workflows/release-internal.yml).
         // Local builds fall back to the defaults below.
-        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1007
-        versionName = System.getenv("VERSION_NAME") ?: "0.1.7-alpha"
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1008
+        versionName = System.getenv("VERSION_NAME") ?: "0.1.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

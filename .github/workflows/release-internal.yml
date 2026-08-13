@@ -36,6 +36,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
+    # Gates every run that can touch the signing keystore and the Play service
+    # account behind a manual approval, and restricts the environment to v* tags
+    # and master. A stolen token can still push a tag, but it cannot turn that
+    # into a release -- or into a workflow run that reads those secrets --
+    # without an approval from a reviewer.
+    environment: play-release
+
     env:
       # A manual run is a dry run unless explicitly unticked. Tag pushes always publish.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
@@ -43,7 +50,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # ---------------------------------------------------------------------
       # Fail fast with a readable message rather than a cryptic build error
@@ -91,10 +98,16 @@ jobs:
       # ---------------------------------------------------------------------
       - name: Resolve version
         shell: bash
+        env:
+          # Bound as an env var rather than interpolated into the script below.
+          # `${{ }}` is substituted into the shell source before bash ever runs,
+          # so a crafted input would be executed as script rather than compared
+          # against the version regex.
+          VERSION_INPUT: ${{ inputs.version_name }}
         run: |
           set -euo pipefail
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            VERSION_NAME="${{ inputs.version_name }}"
+            VERSION_NAME="${VERSION_INPUT}"
           else
             VERSION_NAME="${GITHUB_REF_NAME#v}"
           fi
@@ -139,7 +152,7 @@ jobs:
       # Installing a matching JDK here stops Gradle from downloading one mid-build.
       # Compilation still targets 17 via jvmToolchain(17) in app/build.gradle.kts.
       - name: Set up JetBrains Runtime 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: jetbrains
           java-version: '21'
@@ -148,7 +161,7 @@ jobs:
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
 
       - name: Restore google-services.json
         env:
@@ -273,7 +286,7 @@ jobs:
       # Uploaded before the Play step so a failed upload still leaves something
       # to inspect and retry with. Scoped to build outputs only — never secrets.
       - name: Upload build outputs
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-${{ env.VERSION_NAME }}
           retention-days: 30

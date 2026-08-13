@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">ExpenseTracker</string>
-    <string name="google_web_client_id">550577877339-mkga50c1iq5676qsinilqqba11gjr0aq.apps.googleusercontent.com</string>
+    <!-- The Google web client ID lives in AppConst.kt, which is git-ignored and restored
+         in CI from the APP_CONST_KT_BASE64 secret. It used to be duplicated here as a
+         string resource that nothing read, which published the value this repo is set up
+         to keep out of it. GoogleAuthManager reads AppConst.GOOGLE_WEB_CLIENT_ID. -->
 </resources>

@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.*
 import com.xs.expensetracker.domain.data.enums.TransactionType
 import com.xs.expensetracker.domain.data.models.TransactionReceipt
 import com.xs.expensetracker.domain.data.models.TransactionSource
+import com.xs.expensetracker.ui.components.reusables.ActionResultBar
 import com.xs.expensetracker.ui.components.reusables.ReceiptCard
 import com.xs.expensetracker.ui.components.reusables.ReceiptFormModal
 import com.xs.expensetracker.ui.theme.*
@@ -515,6 +516,13 @@ fun ReceiptsScreen(
                     )
                 }
             }
+
+            // ── Save confirmation ────────────────────────────────
+            ActionResultBar(
+                result = txState.lastResult,
+                onConsume = transactionsViewModel::consumeResult,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+            )
         }
     }
 }

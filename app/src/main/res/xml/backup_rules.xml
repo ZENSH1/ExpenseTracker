@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
+   Auto Backup policy for API 30 and below. API 31+ uses data_extraction_rules.xml
+   instead, which draws the same line while keeping device-to-device transfer intact.
+   This older format cannot express that distinction: it has one policy for everything.
+
+   Listing only <exclude> rules keeps the default of "back up everything else",
+   so app settings and theme state still survive a reinstall.
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <!-- Room. The -wal and -shm sidecars hold committed rows that have not been
+         checkpointed back into the main file yet. -->
+    <exclude domain="database" path="expense_tracker.db" />
+    <exclude domain="database" path="expense_tracker.db-wal" />
+    <exclude domain="database" path="expense_tracker.db-shm" />
+
+    <!-- DataStore (sync_prefs): last-sync cursors and the account identity. -->
+    <exclude domain="file" path="datastore/" />
 </full-backup-content>
