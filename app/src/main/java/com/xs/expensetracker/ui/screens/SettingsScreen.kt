@@ -1,6 +1,8 @@
 package com.xs.expensetracker.ui.screens
 
 import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -97,6 +99,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val activity = context as? Activity
     val snackbarHostState = remember { SnackbarHostState() }
+    val appVersion = rememberAppVersion()
 
     var confirmImport by remember { mutableStateOf(false) }
     var confirmExport by remember { mutableStateOf(false) }
@@ -317,7 +320,42 @@ fun SettingsScreen(
                     onCheckedChange = syncViewModel::setWifiOnly
                 )
             }
+
+            // ── About ────────────────────────────────────────────────────────
+            SectionLabel("ABOUT")
+
+            Card {
+                InfoLine("Version", appVersion)
+            }
         }
+    }
+}
+
+/**
+ * Version of the package actually installed, read from the system rather than from
+ * BuildConfig, so a tester reporting a bug names the build they are really running even if
+ * the APK was sideloaded over another.
+ */
+@Composable
+private fun rememberAppVersion(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            val pm = context.packageManager
+            val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0L))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getPackageInfo(context.packageName, 0)
+            }
+            val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                info.versionCode.toLong()
+            }
+            "${info.versionName ?: "?"} ($code)"
+        }.getOrDefault("Unknown")
     }
 }
 
@@ -489,6 +527,3 @@ private fun DestructiveDialog(
         }
     )
 }
-
-@Composable
-private fun SpacerHeight(height: Int) = Spacer(Modifier.height(height.dp))
