@@ -27,10 +27,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.xs.expensetracker.domain.data.enums.TransactionType
 import com.xs.expensetracker.domain.data.models.Tracker
-import com.xs.expensetracker.ui.components.modals.AddReceiptModal
-import com.xs.expensetracker.ui.components.modals.AddSourceModal
+import com.xs.expensetracker.ui.components.modals.SourceFormModal
+import com.xs.expensetracker.ui.components.reusables.ActionResultBar
 import com.xs.expensetracker.ui.components.reusables.NavCard
 import com.xs.expensetracker.ui.components.reusables.QuickActionButton
+import com.xs.expensetracker.ui.components.reusables.ReceiptFormModal
 import com.xs.expensetracker.ui.components.reusables.SyncStatusIndicator
 import com.xs.expensetracker.ui.theme.accentPurple
 import com.xs.expensetracker.ui.theme.bgCard
@@ -433,13 +434,21 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // ── Save confirmation ─────────────────────────────────────
+            ActionResultBar(
+                result = txState.lastResult,
+                onConsume = transactionsViewModel::consumeResult,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 32.dp)
+            )
         }
     }
 
     if (showAddSourceModal) {
-        AddSourceModal(
+        SourceFormModal(
             trackerId = trackerId,
             transactionsViewModel = transactionsViewModel,
+            initialType = selectedType,
             onDismiss = {
                 transactionsViewModel.clearError()
                 showAddSourceModal = false
@@ -448,9 +457,10 @@ fun HomeScreen(
     }
 
     if (showAddReceiptModal) {
-        AddReceiptModal(
+        ReceiptFormModal(
             trackerId = trackerId,
             transactionsViewModel = transactionsViewModel,
+            initialType = selectedType,
             onDismiss = {
                 transactionsViewModel.clearError()
                 showAddReceiptModal = false
