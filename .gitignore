@@ -12,6 +12,7 @@
 /.gradle/*
 app/release/*
 .DS_Store
+Thumbs.db
 
 # ---- Secrets: never commit these, they live in GitHub Actions secrets ----
 # See .github/workflows/release-internal.yml for how CI restores them.
@@ -30,7 +31,9 @@ play-service-account*.json
 .env
 .env.*
 
-/build
+# Unanchored, so it covers app/build and any future module's build dir, not just
+# the root one -- /build alone left app/build/ untracked only by luck.
+build/
 /captures
 .externalNativeBuild
 .cxx
@@ -39,13 +42,21 @@ local.properties
 # Byte-compiled helper scripts used by the release workflow.
 __pycache__/
 *.py[cod]
-/.claude/worktrees/interesting-brahmagupta/
 /.claude/*
 *.rules
 # Security rules are not a secret and are the deployed source of truth -- the blanket
 # *.rules pattern above kept firestore.rules out of the repo entirely.
 !firestore.rules
 
-# Firestore rules test harness
+# Firestore rules test harness. The harness itself is tracked -- rules.test.mjs,
+# package.json and the lockfile are the deployed rules' only test coverage. Only
+# its installed dependencies and emulator output are ignored.
 firestore-tests/node_modules/
 .firebaserc
+
+# Firebase emulator logs, written next to whatever directory it is run from.
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+database-debug.log*
+pubsub-debug.log*
