@@ -1,0 +1,39 @@
+version: 2
+
+updates:
+  # The actions in ci.yml and release-internal.yml are pinned to commit SHAs so a
+  # moved tag cannot silently change what runs next to the signing keystore. Pinning
+  # only stays safe if something moves the pins when upstream ships a fix, which is
+  # what this ecosystem does -- it rewrites the SHA and updates the trailing
+  # "# v7" comment to match.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: ci
+
+  # Gradle plugins, the version catalog, and the Firebase / AndroidX / Room / Koin
+  # dependencies in app/build.gradle.kts.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: deps
+    groups:
+      # These move together and are version-locked against each other, so one PR
+      # per group keeps them consistent instead of racing.
+      androidx-compose:
+        patterns:
+          - androidx.compose*
+      firebase:
+        patterns:
+          - com.google.firebase*
+          - com.google.gms*
