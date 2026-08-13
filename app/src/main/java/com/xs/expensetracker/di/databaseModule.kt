@@ -2,6 +2,11 @@ package com.xs.expensetracker.di
 
 import androidx.work.WorkManager
 import com.xs.expensetracker.data.local.ExpenseDatabase
+import com.xs.expensetracker.data.local.dao.ReceiptDao
+import com.xs.expensetracker.data.local.dao.SourceDao
+import com.xs.expensetracker.data.local.dao.SyncConflictDao
+import com.xs.expensetracker.data.local.dao.SyncDao
+import com.xs.expensetracker.data.local.dao.TrackerDao
 import com.xs.expensetracker.data.prefs.IdentityProvider
 import com.xs.expensetracker.data.prefs.SyncPreferences
 import com.xs.expensetracker.data.prefs.syncDataStore
@@ -16,28 +21,33 @@ import org.koin.dsl.module
 
 val databaseModule = module {
 
-    single { ExpenseDatabase.build(androidContext()) }
-    single { get<ExpenseDatabase>().trackerDao() }
-    single { get<ExpenseDatabase>().sourceDao() }
-    single { get<ExpenseDatabase>().receiptDao() }
-    single { get<ExpenseDatabase>().syncConflictDao() }
-    single { get<ExpenseDatabase>().syncDao() }
+    single<ExpenseDatabase> { ExpenseDatabase.build(androidContext()) }
+    single<TrackerDao> { get<ExpenseDatabase>().trackerDao() }
+    single<SourceDao> { get<ExpenseDatabase>().sourceDao() }
+    single<ReceiptDao> { get<ExpenseDatabase>().receiptDao() }
+    single<SyncConflictDao> { get<ExpenseDatabase>().syncConflictDao() }
+    single<SyncDao> { get<ExpenseDatabase>().syncDao() }
 
-    single { SyncPreferences(androidContext().syncDataStore) }
+    single<SyncPreferences> { SyncPreferences(androidContext().syncDataStore) }
 
-    // Bound under both types deliberately. The repository and TransactionsViewModel ask for the
-    // concrete IdentityProvider, SyncEngine asks for the SyncIdentity interface, and they have
-    // to be the same instance -- two identities would let the engine sync against one uid while
-    // the UI reads another. Without the bind, resolving SyncEngine throws
-    // NoDefinitionFoundException and the app dies building its first ViewModel.
-    single { IdentityProvider(authRepository = get(), preferences = get()) } bind SyncIdentity::class
+    // Bound under both types deliberately, from one instance -- two identities would let the
+    // engine sync against one uid while the UI reads another.
+    //
+    // Neither type alone works. Drop the bind and SyncEngine, which asks for SyncIdentity,
+    // throws NoDefinitionFoundException and the app dies building its first ViewModel. Declare
+    // it as single<SyncIdentity> instead and the same crash lands on IdentityProvider, which
+    // ExpenseTrackerRepositoryImpl and TransactionsViewModel both inject -- and the ViewModel
+    // cannot be narrowed to the interface, because observeOwnerId() is not on it.
+    single<IdentityProvider> {
+        IdentityProvider(authRepository = get(), preferences = get())
+    } bind SyncIdentity::class
 
     single<RemoteExpenseDataSource> { FirestoreExpenseDataSource(firestore = get()) }
 
-    single { WorkManager.getInstance(androidContext()) }
-    single { SyncScheduler(workManager = get(), preferences = get()) }
+    single<WorkManager> { WorkManager.getInstance(androidContext()) }
+    single<SyncScheduler> { SyncScheduler(workManager = get(), preferences = get()) }
 
-    single {
+    single<SyncEngine> {
         SyncEngine(
             trackerDao = get(),
             sourceDao = get(),
